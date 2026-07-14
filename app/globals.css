@@ -1,8 +1,81 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-* { box-sizing: border-box; }
-body { background: #090B10; color: white; }
+
+:root[data-theme="dark"] {
+  --bg:        #090B10;
+  --bg2:       #0f1117;
+  --bg3:       #1a1d26;
+  --border:    rgba(255,255,255,0.07);
+  --border2:   rgba(255,255,255,0.03);
+  --text:      #ffffff;
+  --text2:     rgba(255,255,255,0.55);
+  --text3:     rgba(255,255,255,0.25);
+  --accent:    #2563eb;
+  --accent2:   #7c3aed;
+  --green:     #4ade80;
+  --blue:      #60a5fa;
+  --purple:    #a78bfa;
+  --red:       #f87171;
+  --yellow:    #facc15;
+  --input-bg:  #1a1d26;
+  --shadow:    rgba(0,0,0,0.4);
+  --check:     #2563eb;
+  --tag-bg:    #1e3a8a;
+  --tag-text:  #93c5fd;
+  --card-glow: rgba(37,99,235,0.12);
+}
+:root[data-theme="light"] {
+  --bg:        #f8fafc;
+  --bg2:       #ffffff;
+  --bg3:       #f1f5f9;
+  --border:    rgba(0,0,0,0.08);
+  --border2:   rgba(0,0,0,0.04);
+  --text:      #0f172a;
+  --text2:     #475569;
+  --text3:     #94a3b8;
+  --accent:    #2563eb;
+  --accent2:   #7c3aed;
+  --green:     #16a34a;
+  --blue:      #2563eb;
+  --purple:    #7c3aed;
+  --red:       #dc2626;
+  --yellow:    #d97706;
+  --input-bg:  #f8fafc;
+  --shadow:    rgba(0,0,0,0.08);
+  --check:     #2563eb;
+  --tag-bg:    #dbeafe;
+  --tag-text:  #1d4ed8;
+  --card-glow: rgba(37,99,235,0.06);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.2s, color 0.2s;
+}
+
 ::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: #0f1117; }
-::-webkit-scrollbar-thumb { background: #374151; border-radius: 2px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+input, select, textarea {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-family: inherit;
+}
+input::placeholder { color: var(--text3); }
+input:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+}
+
+button { font-family: inherit; cursor: pointer; }
