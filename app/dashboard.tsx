@@ -1,224 +1,146 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 
+/* ── Types ─────────────────────────────────────────── */
 interface Lead {
-  company_name: string
-  phone?: string
-  email?: string
-  website?: string
-  city?: string
-  state?: string
-  category?: string
-  source_url?: string
+  company_name: string; phone?: string; email?: string
+  website?: string; city?: string; state?: string
+  category?: string; source_url?: string; scraped_at?: string
+}
+interface Job {
+  id: string; source: Source; status: "running"|"complete"|"error"
+  leads: number; duration_ms?: number; log: string[]
+}
+interface Source {
+  id: string; name: string; icon: string
+  description: string; build: (i:string,c:string,s:string)=>string
 }
 
-interface ScrapeJob {
-  id: string
-  url: string
-  label: string
-  status: "queued" | "running" | "complete" | "error"
-  pages: number
-  leads: number
-  duration_ms?: number
-  log: string[]
+/* ── The 10 Sources ────────────────────────────────── */
+const SOURCES: Source[] = [
+  {
+    id: "yellowpages", name: "Yellow Pages", icon: "📒",
+    description: "Largest US business directory",
+    build: (i,c,s) => `https://www.yellowpages.com/${c.toLowerCase().replace(/\s+/g,"-")}-${s.toLowerCase()}/mip/${i.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}`,
+  },
+  {
+    id: "yelp", name: "Yelp", icon: "⭐",
+    description: "Reviews + local business discovery",
+    build: (i,c,s) => `https://www.yelp.com/search?find_desc=${encodeURIComponent(i)}&find_loc=${encodeURIComponent(c+", "+s)}`,
+  },
+  {
+    id: "googlemaps", name: "Google Maps", icon: "📍",
+    description: "Google Places + local SEO ranking",
+    build: (i,c,s) => `https://www.google.com/maps/search/${encodeURIComponent(i+" near "+c+" "+s)}`,
+  },
+  {
+    id: "angi", name: "Angi", icon: "🔧",
+    description: "Home services — high-intent buyers",
+    build: (i,c,s) => `https://www.angi.com/companylist/us/${s.toLowerCase()}/${c.toLowerCase().replace(/\s+/g,"-")}/${i.toLowerCase().replace(/[^a-z0-9]+/g,"-")}-reviews-6988.htm`,
+  },
+  {
+    id: "bbb", name: "Better Business Bureau", icon: "🏆",
+    description: "Verified, trusted businesses only",
+    build: (i,c,s) => `https://www.bbb.org/search?find_country=USA&find_text=${encodeURIComponent(i)}&find_loc=${encodeURIComponent(c+", "+s)}`,
+  },
+  {
+    id: "homeadvisor", name: "HomeAdvisor", icon: "🏠",
+    description: "Home improvement pros — pre-qualified",
+    build: (i,c,s) => `https://www.homeadvisor.com/c.${i.replace(/\s+/g,"-")}.${c.replace(/\s+/g,"-")}-${s}.html`,
+  },
+  {
+    id: "thumbtack", name: "Thumbtack", icon: "📌",
+    description: "On-demand service professionals",
+    build: (i,c,s) => `https://www.thumbtack.com/k/${encodeURIComponent(i.toLowerCase().replace(/\s+/g,"-"))}/${encodeURIComponent(c.toLowerCase().replace(/\s+/g,"-"))}/`,
+  },
+  {
+    id: "manta", name: "Manta", icon: "🔍",
+    description: "Small business profiles & contacts",
+    build: (i,c,s) => `https://www.manta.com/mb_46_${s.toUpperCase()}_${c.toLowerCase().replace(/\s+/g,"_")}/search?search_term=${encodeURIComponent(i)}`,
+  },
+  {
+    id: "chamberofcommerce", name: "Chamber of Commerce", icon: "🏛️",
+    description: "Local chamber business listings",
+    build: (i,c,s) => `https://www.chamberofcommerce.com/search?q=${encodeURIComponent(i)}&location=${encodeURIComponent(c+", "+s)}`,
+  },
+  {
+    id: "facebook", name: "Facebook Business", icon: "📘",
+    description: "FB Pages — phone + website + reviews",
+    build: (i,c,s) => `https://www.facebook.com/search/pages/?q=${encodeURIComponent(i+" "+c+" "+s)}`,
+  },
+]
+
+/* ── Status colors ─────────────────────────────────── */
+const STATUS: Record<string,string> = {
+  running: "var(--blue)", complete: "var(--green)", error: "var(--red)"
 }
 
-interface Target {
-  label: string
-  source: string
-  industry: string
-  url: string
-  priority: "🔥" | "⭐" | "📌"
+/* ── Helpers ───────────────────────────────────────── */
+function hostname(url: string) {
+  try { return new URL(url).hostname.replace("www.","") } catch { return "—" }
 }
 
-// ── State + City data ─────────────────────────────────────────────
-const US_STATES: Record<string, string[]> = {
-  AZ: ["Phoenix","Scottsdale","Tempe","Mesa","Chandler","Gilbert","Glendale","Peoria","Tucson","Flagstaff"],
-  TX: ["Houston","Dallas","Austin","San Antonio","Fort Worth","El Paso","Arlington","Plano","Lubbock","Frisco"],
-  CA: ["Los Angeles","San Diego","San Francisco","San Jose","Fresno","Sacramento","Long Beach","Anaheim","Riverside","Bakersfield"],
-  FL: ["Miami","Orlando","Tampa","Jacksonville","Fort Lauderdale","St. Petersburg","Cape Coral","Tallahassee","Hialeah","Port St. Lucie"],
-  GA: ["Atlanta","Columbus","Augusta","Savannah","Athens","Sandy Springs","Roswell","Macon","Warner Robins","Albany"],
-  NY: ["New York City","Buffalo","Rochester","Yonkers","Syracuse","Albany","New Rochelle","Mount Vernon","Schenectady","Utica"],
-  CO: ["Denver","Colorado Springs","Aurora","Fort Collins","Lakewood","Thornton","Arvada","Westminster","Pueblo","Centennial"],
-  NV: ["Las Vegas","Henderson","Reno","North Las Vegas","Sparks","Carson City","Fernley","Elko","Mesquite","Boulder City"],
-  WA: ["Seattle","Spokane","Tacoma","Vancouver","Bellevue","Kent","Everett","Renton","Kirkland","Marysville"],
-  IL: ["Chicago","Aurora","Joliet","Naperville","Rockford","Springfield","Elgin","Peoria","Champaign","Waukegan"],
-  OH: ["Columbus","Cleveland","Cincinnati","Toledo","Akron","Dayton","Parma","Canton","Youngstown","Lorain"],
-  NC: ["Charlotte","Raleigh","Greensboro","Durham","Winston-Salem","Fayetteville","Cary","Wilmington","High Point","Concord"],
-  MI: ["Detroit","Grand Rapids","Warren","Sterling Heights","Ann Arbor","Lansing","Flint","Dearborn","Livonia","Westland"],
-  TN: ["Nashville","Memphis","Knoxville","Chattanooga","Clarksville","Murfreesboro","Jackson","Franklin","Johnson City","Bartlett"],
-  PA: ["Philadelphia","Pittsburgh","Allentown","Erie","Reading","Scranton","Bethlehem","Lancaster","Harrisburg","Altoona"],
-}
-
-const STATE_NAMES: Record<string, string> = {
-  AZ:"Arizona", TX:"Texas", CA:"California", FL:"Florida", GA:"Georgia",
-  NY:"New York", CO:"Colorado", NV:"Nevada", WA:"Washington", IL:"Illinois",
-  OH:"Ohio", NC:"North Carolina", MI:"Michigan", TN:"Tennessee", PA:"Pennsylvania",
-}
-
-// ── Top 10 targets per state — pre-wired best sources ────────────
-function getTopTargets(state: string, city: string): Target[] {
-  const s = state.toLowerCase()
-  const c = city.toLowerCase().replace(/\s+/g,"-")
-  const cRaw = encodeURIComponent(city)
-  const stRaw = encodeURIComponent(state)
-
-  const epoxy   = encodeURIComponent("Epoxy Flooring")
-  const polish  = encodeURIComponent("Concrete Polishing")
-  const garage  = encodeURIComponent("Garage Floor Coating")
-  const coating = encodeURIComponent("Industrial Coatings")
-  const decor   = encodeURIComponent("Decorative Concrete")
-
-  return [
-    {
-      label:    `Yellow Pages — Epoxy Flooring`,
-      source:   "yellowpages",
-      industry: "Epoxy Flooring",
-      url:      `https://www.yellowpages.com/${c}-${s}/mip/epoxy-flooring`,
-      priority: "🔥",
-    },
-    {
-      label:    `Yelp — Epoxy Flooring`,
-      source:   "yelp",
-      industry: "Epoxy Flooring",
-      url:      `https://www.yelp.com/search?find_desc=${epoxy}&find_loc=${cRaw}%2C+${stRaw}`,
-      priority: "🔥",
-    },
-    {
-      label:    `Yellow Pages — Garage Floor Coating`,
-      source:   "yellowpages",
-      industry: "Garage Floor Coating",
-      url:      `https://www.yellowpages.com/${c}-${s}/mip/garage-floor-coating`,
-      priority: "🔥",
-    },
-    {
-      label:    `Yelp — Concrete Polishing`,
-      source:   "yelp",
-      industry: "Concrete Polishing",
-      url:      `https://www.yelp.com/search?find_desc=${polish}&find_loc=${cRaw}%2C+${stRaw}`,
-      priority: "⭐",
-    },
-    {
-      label:    `Yellow Pages — Concrete Polishing`,
-      source:   "yellowpages",
-      industry: "Concrete Polishing",
-      url:      `https://www.yellowpages.com/${c}-${s}/mip/concrete-polishing`,
-      priority: "⭐",
-    },
-    {
-      label:    `Angi — Epoxy Flooring`,
-      source:   "angi",
-      industry: "Epoxy Flooring",
-      url:      `https://www.angi.com/companylist/us/${s}/${c}/epoxy-flooring-reviews-6988.htm`,
-      priority: "⭐",
-    },
-    {
-      label:    `Yelp — Garage Floor Coating`,
-      source:   "yelp",
-      industry: "Garage Floor Coating",
-      url:      `https://www.yelp.com/search?find_desc=${garage}&find_loc=${cRaw}%2C+${stRaw}`,
-      priority: "⭐",
-    },
-    {
-      label:    `Yellow Pages — Industrial Coatings`,
-      source:   "yellowpages",
-      industry: "Industrial Coatings",
-      url:      `https://www.yellowpages.com/${c}-${s}/mip/industrial-coatings`,
-      priority: "📌",
-    },
-    {
-      label:    `Yelp — Decorative Concrete`,
-      source:   "yelp",
-      industry: "Decorative Concrete",
-      url:      `https://www.yelp.com/search?find_desc=${decor}&find_loc=${cRaw}%2C+${stRaw}`,
-      priority: "📌",
-    },
-    {
-      label:    `Angi — Concrete Polishing`,
-      source:   "angi",
-      industry: "Concrete Polishing",
-      url:      `https://www.angi.com/companylist/us/${s}/${c}/concrete-polishing-reviews-6988.htm`,
-      priority: "📌",
-    },
-  ]
-}
-
-const PRIORITY_COLOR: Record<string, string> = {
-  "🔥": "#ef4444",
-  "⭐": "#f59e0b",
-  "📌": "#6b7280",
-}
-
-const STATUS_COLOR: Record<string, string> = {
-  queued: "#facc15", running: "#60a5fa", complete: "#4ade80", error: "#f87171",
-}
-
+/* ── Main Component ────────────────────────────────── */
 export default function ScraperDashboard() {
-  const [selectedState,  setSelectedState]  = useState("AZ")
-  const [selectedCity,   setSelectedCity]   = useState("Phoenix")
-  const [maxPages,       setMaxPages]       = useState(30)
-  const [jobs,           setJobs]           = useState<ScrapeJob[]>([])
-  const [leads,          setLeads]          = useState<Lead[]>([])
-  const [stats,          setStats]          = useState({ total: 0, today: 0, runs: 0 })
-  const [loading,        setLoading]        = useState(false)
-  const [activeTargets,  setActiveTargets]  = useState<Set<number>>(new Set([0,1,2]))
-  const [customUrl,      setCustomUrl]      = useState("")
-  const [showCustom,     setShowCustom]     = useState(false)
 
-  const cities  = US_STATES[selectedState] || []
-  const targets = getTopTargets(selectedState, selectedCity)
+  /* Search state */
+  const [city,     setCity]     = useState("")
+  const [state,    setState_]   = useState("")
+  const [industry, setIndustry] = useState("")
+  const [amount,   setAmount]   = useState("50")
 
-  // Auto-reset city + re-select top 3 when state changes
+  /* Sources — all 10 on by default */
+  const [active, setActive] = useState<Set<string>>(new Set(SOURCES.map(s => s.id)))
+
+  /* Data */
+  const [jobs,  setJobs]  = useState<Job[]>([])
+  const [leads, setLeads] = useState<Lead[]>([])
+  const [stats, setStats] = useState({ total: 0, today: 0, runs: 0 })
+  const [loading, setLoading] = useState(false)
+
+  /* Theme */
+  const [dark, setDark] = useState(true)
   useEffect(() => {
-    const c = US_STATES[selectedState]
-    if (c && !c.includes(selectedCity)) setSelectedCity(c[0])
-    setActiveTargets(new Set([0,1,2]))
-  }, [selectedState])
+    const saved = localStorage.getItem("xscraper-theme")
+    const pref  = window.matchMedia("(prefers-color-scheme: dark)").matches
+    const isDark = saved ? saved === "dark" : pref
+    setDark(isDark)
+    document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light")
+  }, [])
 
-  useEffect(() => {
-    setActiveTargets(new Set([0,1,2]))
-  }, [selectedCity])
+  function toggleTheme() {
+    const next = !dark
+    setDark(next)
+    document.documentElement.setAttribute("data-theme", next ? "dark" : "light")
+    localStorage.setItem("xscraper-theme", next ? "dark" : "light")
+  }
 
+  /* Data fetch */
   useEffect(() => { fetchStats(); fetchLeads() }, [])
 
   async function fetchStats() {
-    try {
-      const r = await fetch("/api/stats")
-      if (r.ok) { const d = await r.json(); setStats({ total: d.total_leads ?? 0, today: d.new_today ?? 0, runs: d.total_runs ?? 0 }) }
-    } catch {}
+    try { const r = await fetch("/api/stats"); if (r.ok) { const d = await r.json(); setStats({ total: d.total_leads??0, today: d.new_today??0, runs: d.total_runs??0 }) } } catch {}
   }
-
   async function fetchLeads() {
-    try {
-      const r = await fetch("/api/leads?limit=100")
-      if (r.ok) { const d = await r.json(); setLeads(Array.isArray(d) ? d : (d.leads ?? [])) }
-    } catch {}
+    try { const r = await fetch("/api/leads?limit=200"); if (r.ok) { const d = await r.json(); setLeads(Array.isArray(d)?d:(d.leads??[])) } } catch {}
   }
 
-  function toggleTarget(i: number) {
-    setActiveTargets(prev => {
-      const next = new Set(prev)
-      next.has(i) ? next.delete(i) : next.add(i)
-      return next
-    })
+  function toggle(id: string) {
+    setActive(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   }
 
-  function selectAll()   { setActiveTargets(new Set(targets.map((_,i) => i))) }
-  function selectHot()   { setActiveTargets(new Set(targets.map((_,i)=>i).filter(i => targets[i].priority === "🔥"))) }
-  function selectNone()  { setActiveTargets(new Set()) }
-
-  async function runSelected() {
-    const selected = [...activeTargets].map(i => targets[i])
-    if (selected.length === 0) return
+  /* ── RUN SCRAPE ─────────────────────────────────── */
+  async function run() {
+    const sel = SOURCES.filter(s => active.has(s.id))
+    if (!sel.length || !industry.trim()) return
     setLoading(true)
 
-    for (const target of selected) {
-      const url    = target.url
-      const jobId  = Date.now().toString() + Math.random()
-      const job: ScrapeJob = {
-        id: jobId, url, label: target.label,
-        status: "running", pages: 0, leads: 0,
-        log: [`▶ ${target.label}`, `📍 ${selectedCity}, ${selectedState}`],
+    for (const src of sel) {
+      const url   = src.build(industry.trim(), city.trim()||"USA", state.trim()||"US")
+      const jobId = Date.now().toString() + Math.random()
+      const job: Job = {
+        id: jobId, source: src, status: "running", leads: 0,
+        log: [`▶ ${src.name} — ${city||"all locations"}`],
       }
       setJobs(prev => [job, ...prev])
 
@@ -226,291 +148,275 @@ export default function ScraperDashboard() {
         const r = await fetch("/api/scrape", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url, industry: target.industry, city: selectedCity, state: selectedState, max_pages: maxPages }),
+          body: JSON.stringify({ url, industry: industry.trim(), city: city.trim(), state: state.trim(), max_pages: Math.max(1, parseInt(amount)||50) }),
         })
-        const data = await r.json()
+        const d = await r.json()
         setJobs(prev => prev.map(j => j.id !== jobId ? j : {
           ...j,
           status: r.ok ? "complete" : "error",
-          pages:  data.pages_scraped ?? 0,
-          leads:  data.leads_saved ?? data.leads_found ?? 0,
-          duration_ms: data.duration_ms,
-          log: [...j.log,
-            r.ok
-              ? `✅ ${data.leads_saved ?? 0} leads saved — ${((data.duration_ms||0)/1000).toFixed(1)}s`
-              : `❌ ${data.error}`
-          ],
+          leads:  d.leads_saved ?? d.leads_found ?? 0,
+          duration_ms: d.duration_ms,
+          log: [...j.log, r.ok ? `✅ ${d.leads_saved??0} leads saved (${((d.duration_ms||0)/1000).toFixed(1)}s)` : `❌ ${d.error||"Error"}`],
         }))
         if (r.ok) { fetchStats(); fetchLeads() }
       } catch (e: unknown) {
-        setJobs(prev => prev.map(j => j.id === jobId
-          ? { ...j, status: "error", log: [...j.log, `❌ ${String(e)}`] } : j
-        ))
+        setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status:"error", log:[...j.log,`❌ ${String(e)}`] } : j))
       }
-      // Small delay between jobs
-      await new Promise(res => setTimeout(res, 500))
+      await new Promise(res => setTimeout(res, 400))
     }
     setLoading(false)
   }
 
-  async function runCustom() {
-    if (!customUrl.trim()) return
-    setLoading(true)
-    const jobId = Date.now().toString()
-    const job: ScrapeJob = {
-      id: jobId, url: customUrl, label: "Custom URL",
-      status: "running", pages: 0, leads: 0,
-      log: [`▶ Custom: ${customUrl}`],
-    }
-    setJobs(prev => [job, ...prev])
-    try {
-      const r = await fetch("/api/scrape", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: customUrl, industry: "Epoxy Flooring", city: selectedCity, state: selectedState, max_pages: maxPages }),
-      })
-      const data = await r.json()
-      setJobs(prev => prev.map(j => j.id !== jobId ? j : {
-        ...j,
-        status: r.ok ? "complete" : "error",
-        leads:  data.leads_saved ?? 0,
-        duration_ms: data.duration_ms,
-        log: [...j.log, r.ok ? `✅ ${data.leads_saved ?? 0} leads saved` : `❌ ${data.error}`],
-      }))
-      if (r.ok) { fetchStats(); fetchLeads() }
-    } catch (e: unknown) {
-      setJobs(prev => prev.map(j => j.id === jobId
-        ? { ...j, status: "error", log: [...j.log, `❌ ${String(e)}`] } : j
-      ))
-    }
-    setLoading(false)
-  }
+  const selCount = active.size
+  const canRun   = !loading && !!industry.trim() && selCount > 0
 
-  const card: React.CSSProperties = { background:"#0f1117", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:20 }
-  const input: React.CSSProperties = { width:"100%", background:"#1a1d26", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"8px 10px", color:"white", fontSize:13, outline:"none" }
-  const lbl: React.CSSProperties  = { display:"block", fontSize:10, color:"rgba(255,255,255,0.35)", marginBottom:4, textTransform:"uppercase", letterSpacing:"0.8px" }
+  /* ── Styles ─────────────────────────────────────── */
+  const card = {
+    background: "var(--bg2)", border: "1px solid var(--border)",
+    borderRadius: 14, padding: 20,
+    boxShadow: "0 2px 16px var(--shadow)",
+  } as React.CSSProperties
 
-  const hot    = targets.filter(t => t.priority === "🔥").length
-  const sel    = activeTargets.size
+  const lbl = {
+    display: "block", fontSize: 11, fontWeight: 600,
+    color: "var(--text3)", textTransform: "uppercase" as const,
+    letterSpacing: "0.8px", marginBottom: 6,
+  } as React.CSSProperties
 
   return (
-    <div style={{ minHeight:"100vh", background:"#090B10", color:"white", fontFamily:"system-ui,-apple-system,sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:"var(--bg)", color:"var(--text)" }}>
 
-      {/* ── Header ───────────────────────────────────────────── */}
-      <header style={{ borderBottom:"1px solid rgba(255,255,255,0.06)", padding:"14px 28px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <div>
-          <h1 style={{ margin:0, fontSize:17, fontWeight:700, letterSpacing:-0.5 }}>⚡ XTREME SCRAPER</h1>
-          <p style={{ margin:"2px 0 0", fontSize:10, color:"rgba(255,255,255,0.3)" }}>Asyncio Lead Discovery → Supabase</p>
+      {/* ── HEADER ──────────────────────────────────── */}
+      <header style={{
+        position: "sticky", top: 0, zIndex: 100,
+        background: "var(--bg2)", borderBottom: "1px solid var(--border)",
+        padding: "0 24px", height: 58,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        backdropFilter: "blur(12px)",
+      }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:22 }}>⚡</span>
+          <div>
+            <h1 style={{ fontSize:15, fontWeight:800, letterSpacing:-0.5, lineHeight:1 }}>XTREME SCRAPER</h1>
+            <p style={{ fontSize:10, color:"var(--text3)", marginTop:1 }}>Lead Discovery Engine</p>
+          </div>
         </div>
-        <div style={{ display:"flex", gap:20 }}>
-          {[["Total Leads", stats.total, "#4ade80"],["Today", stats.today, "#60a5fa"],["Runs", stats.runs, "#a78bfa"]].map(([l,v,c]) => (
+
+        {/* Stats */}
+        <div style={{ display:"flex", gap:24, alignItems:"center" }}>
+          {[["Leads", stats.total, "var(--green)"],["Today", stats.today, "var(--blue)"],["Runs", stats.runs, "var(--purple)"]].map(([l,v,c])=>(
             <div key={String(l)} style={{ textAlign:"center" }}>
-              <p style={{ margin:0, fontSize:20, fontWeight:700, color:String(c) }}>{v}</p>
-              <p style={{ margin:0, fontSize:9, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", letterSpacing:1 }}>{l}</p>
+              <p style={{ fontSize:18, fontWeight:800, color:String(c), lineHeight:1 }}>{v}</p>
+              <p style={{ fontSize:9, color:"var(--text3)", textTransform:"uppercase", letterSpacing:1 }}>{l}</p>
             </div>
           ))}
+          {/* Theme toggle */}
+          <button onClick={toggleTheme} style={{
+            background:"var(--bg3)", border:"1px solid var(--border)",
+            borderRadius:20, padding:"6px 12px", fontSize:14,
+            color:"var(--text2)", cursor:"pointer",
+          }}>
+            {dark ? "☀️" : "🌙"}
+          </button>
         </div>
       </header>
 
-      <div style={{ display:"grid", gridTemplateColumns:"360px 1fr", gap:20, padding:20 }}>
+      <div style={{ maxWidth:1200, margin:"0 auto", padding:24, display:"flex", flexDirection:"column", gap:20 }}>
 
-        {/* ── LEFT ───────────────────────────────────────────── */}
-        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-
-          {/* 📍 Location */}
-          <div style={{ ...card, border:"1px solid rgba(96,165,250,0.2)" }}>
-            <h2 style={{ margin:"0 0 14px", fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:1 }}>📍 Location</h2>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-              <div>
-                <label style={lbl}>State</label>
-                <select value={selectedState} onChange={e => setSelectedState(e.target.value)} style={{ ...input, cursor:"pointer" }}>
-                  {Object.entries(STATE_NAMES).map(([code,name]) => (
-                    <option key={code} value={code}>{name} ({code})</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={lbl}>City</label>
-                <select value={selectedCity} onChange={e => setSelectedCity(e.target.value)} style={{ ...input, cursor:"pointer" }}>
-                  {cities.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
+        {/* ── SEARCH BAR — the whole point ────────────── */}
+        <div style={{ ...card, border:"1px solid var(--accent)", background:"var(--bg2)", boxShadow:"0 0 0 1px var(--card-glow), 0 4px 24px var(--shadow)" }}>
+          <p style={{ fontSize:11, fontWeight:700, color:"var(--accent)", textTransform:"uppercase", letterSpacing:1, marginBottom:16 }}>
+            🎯 What are you looking for?
+          </p>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 160px 140px 120px", gap:12 }}>
+            <div>
+              <label style={lbl}>Industry / Business Type</label>
+              <input
+                value={industry}
+                onChange={e => setIndustry(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && canRun && run()}
+                placeholder="e.g. Epoxy Flooring, HVAC, Roofing, Dentist..."
+                style={{ fontSize:15, fontWeight:500 }}
+                autoFocus
+              />
             </div>
-            <div style={{ marginTop:10, padding:"6px 10px", background:"#0a0c14", borderRadius:6, fontSize:10, color:"rgba(255,255,255,0.3)" }}>
-              📌 Targets auto-fill for <span style={{ color:"#60a5fa" }}>{selectedCity}, {selectedState}</span> — top 3 pre-selected
+            <div>
+              <label style={lbl}>City</label>
+              <input
+                value={city}
+                onChange={e => setCity(e.target.value)}
+                placeholder="Phoenix"
+              />
+            </div>
+            <div>
+              <label style={lbl}>State</label>
+              <input
+                value={state}
+                onChange={e => setState_(e.target.value)}
+                placeholder="AZ"
+                style={{ textTransform:"uppercase" }}
+              />
+            </div>
+            <div>
+              <label style={lbl}>Results Limit</label>
+              <input
+                type="number"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+                min={5} max={500}
+                placeholder="50"
+              />
             </div>
           </div>
+          {/* Big run button */}
+          <button
+            onClick={run}
+            disabled={!canRun}
+            style={{
+              marginTop:16, width:"100%", padding:"16px 0",
+              background: canRun ? "linear-gradient(135deg, var(--accent), var(--accent2))" : "var(--bg3)",
+              color: canRun ? "white" : "var(--text3)",
+              border:"none", borderRadius:10, fontSize:15, fontWeight:800,
+              cursor: canRun ? "pointer" : "not-allowed",
+              letterSpacing:0.5, transition:"all 0.2s",
+              boxShadow: canRun ? "0 4px 20px rgba(37,99,235,0.35)" : "none",
+            }}
+          >
+            {loading
+              ? `⏳ Scraping ${selCount} source${selCount!==1?"s":""}...`
+              : canRun
+                ? `⚡ Search ${selCount} Source${selCount!==1?"s":""} for "${industry}"${city ? ` in ${city}` : ""}${state ? `, ${state.toUpperCase()}` : ""}`
+                : "Enter an industry above to begin"
+            }
+          </button>
+        </div>
 
-          {/* 🎯 Top 10 Targets */}
-          <div style={card}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
-              <h2 style={{ margin:0, fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:1 }}>
-                🎯 Top 10 Targets
-              </h2>
-              <div style={{ display:"flex", gap:6 }}>
-                {[["🔥 Hot", selectHot],["All", selectAll],["None", selectNone]].map(([label, fn]) => (
-                  <button key={String(label)} onClick={fn as () => void}
-                    style={{ fontSize:10, padding:"3px 8px", borderRadius:5, border:"1px solid rgba(255,255,255,0.1)", background:"#1a1d26", color:"rgba(255,255,255,0.5)", cursor:"pointer" }}>
-                    {String(label)}
-                  </button>
-                ))}
-              </div>
+        {/* ── SOURCES grid ────────────────────────────── */}
+        <div style={card}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+            <div>
+              <p style={{ fontSize:11, fontWeight:700, color:"var(--text3)", textTransform:"uppercase", letterSpacing:1 }}>📡 Sources</p>
+              <p style={{ fontSize:11, color:"var(--text3)", marginTop:3 }}>{selCount} of {SOURCES.length} selected</p>
             </div>
-
-            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-              {targets.map((t, i) => {
-                const on = activeTargets.has(i)
-                return (
-                  <button key={i} onClick={() => toggleTarget(i)}
-                    style={{
-                      display:"flex", alignItems:"center", gap:10,
-                      padding:"8px 10px", borderRadius:8, cursor:"pointer",
-                      border: on ? `1px solid ${PRIORITY_COLOR[t.priority]}40` : "1px solid rgba(255,255,255,0.04)",
-                      background: on ? `${PRIORITY_COLOR[t.priority]}10` : "#1a1d26",
-                      textAlign:"left", transition:"all 0.15s",
-                    }}>
-                    {/* Checkbox */}
-                    <div style={{
-                      width:14, height:14, borderRadius:3, flexShrink:0,
-                      border: on ? "none" : "1px solid rgba(255,255,255,0.2)",
-                      background: on ? PRIORITY_COLOR[t.priority] : "transparent",
-                      display:"flex", alignItems:"center", justifyContent:"center",
-                    }}>
-                      {on && <span style={{ fontSize:9, color:"white", lineHeight:1 }}>✓</span>}
-                    </div>
-                    {/* Priority badge */}
-                    <span style={{ fontSize:12 }}>{t.priority}</span>
-                    {/* Label */}
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <p style={{ margin:0, fontSize:11, fontWeight:500, color: on ? "white" : "rgba(255,255,255,0.5)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                        {t.label}
-                      </p>
-                      <p style={{ margin:0, fontSize:9, color:"rgba(255,255,255,0.2)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                        {t.url.replace("https://","").substring(0,55)}
-                      </p>
-                    </div>
-                  </button>
-                )
-              })}
+            <div style={{ display:"flex", gap:8 }}>
+              {[["All", ()=>setActive(new Set(SOURCES.map(s=>s.id)))], ["None", ()=>setActive(new Set())]].map(([l,fn])=>(
+                <button key={String(l)} onClick={fn as ()=>void} style={{
+                  fontSize:11, padding:"4px 10px", borderRadius:6,
+                  border:"1px solid var(--border)", background:"var(--bg3)",
+                  color:"var(--text2)", cursor:"pointer",
+                }}>{String(l)}</button>
+              ))}
             </div>
-
-            <p style={{ margin:"10px 0 0", fontSize:10, color:"rgba(255,255,255,0.25)", textAlign:"center" }}>
-              {sel} of 10 selected ({hot} 🔥 high-priority)
-            </p>
           </div>
-
-          {/* ⚙️ Settings + Run */}
-          <div style={card}>
-            <label style={lbl}>Max Pages per Target</label>
-            <input type="number" value={maxPages} min={1} max={100}
-              onChange={e => setMaxPages(Number(e.target.value))}
-              style={{ ...input, marginBottom:14 }} />
-
-            <button onClick={runSelected} disabled={loading || sel === 0}
-              style={{
-                width:"100%", padding:"13px 0", borderRadius:10, border:"none",
-                background: loading || sel===0 ? "#1a1d26" : "linear-gradient(135deg,#2563eb,#7c3aed)",
-                color: loading||sel===0 ? "rgba(255,255,255,0.3)" : "white",
-                fontSize:13, fontWeight:700, cursor: loading||sel===0 ? "not-allowed" : "pointer",
-                letterSpacing:0.3, transition:"all 0.2s",
-              }}>
-              {loading ? "⏳ Scraping..." : `▶ Run ${sel} Target${sel!==1?"s":""} — ${selectedCity}, ${selectedState}`}
-            </button>
-          </div>
-
-          {/* Custom URL */}
-          <div style={card}>
-            <button onClick={() => setShowCustom(!showCustom)}
-              style={{ background:"none", border:"none", color:"rgba(255,255,255,0.35)", fontSize:11, cursor:"pointer", padding:0, marginBottom: showCustom ? 10 : 0 }}>
-              {showCustom ? "▾" : "▸"} Custom URL (advanced)
-            </button>
-            {showCustom && (
-              <div>
-                <input value={customUrl} onChange={e => setCustomUrl(e.target.value)}
-                  placeholder="https://..." style={{ ...input, marginBottom:8 }} />
-                <button onClick={runCustom} disabled={loading || !customUrl.trim()}
-                  style={{ width:"100%", padding:"9px 0", borderRadius:8, border:"1px solid rgba(255,255,255,0.1)", background:"#1a1d26", color:"rgba(255,255,255,0.6)", fontSize:12, cursor:"pointer" }}>
-                  ▶ Scrape Custom URL
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(180px,1fr))", gap:8 }}>
+            {SOURCES.map(src => {
+              const on = active.has(src.id)
+              return (
+                <button key={src.id} onClick={() => toggle(src.id)} style={{
+                  display:"flex", alignItems:"center", gap:10, padding:"10px 12px",
+                  borderRadius:9, cursor:"pointer", textAlign:"left",
+                  border: on ? "1px solid rgba(37,99,235,0.5)" : "1px solid var(--border)",
+                  background: on ? "rgba(37,99,235,0.08)" : "var(--bg3)",
+                  transition:"all 0.15s",
+                }}>
+                  {/* Checkbox */}
+                  <div style={{
+                    width:16, height:16, borderRadius:4, flexShrink:0,
+                    border: on ? "none" : "1.5px solid var(--text3)",
+                    background: on ? "var(--accent)" : "transparent",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                  }}>
+                    {on && <span style={{ fontSize:10, color:"white", lineHeight:1 }}>✓</span>}
+                  </div>
+                  <span style={{ fontSize:16 }}>{src.icon}</span>
+                  <div style={{ minWidth:0 }}>
+                    <p style={{ fontSize:12, fontWeight:600, color: on ? "var(--text)" : "var(--text2)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{src.name}</p>
+                    <p style={{ fontSize:10, color:"var(--text3)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{src.description}</p>
+                  </div>
                 </button>
-              </div>
-            )}
+              )
+            })}
           </div>
         </div>
 
-        {/* ── RIGHT ──────────────────────────────────────────── */}
-        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-
-          {/* Job Queue */}
-          {jobs.length > 0 && (
-            <div style={card}>
-              <h2 style={{ margin:"0 0 12px", fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:1 }}>🔄 Job Queue</h2>
-              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                {jobs.slice(0,6).map(job => (
-                  <div key={job.id} style={{ background:"#1a1d26", border:"1px solid rgba(255,255,255,0.04)", borderRadius:8, padding:12 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                      <span style={{ fontSize:12, fontWeight:600, color:"white" }}>{job.label}</span>
-                      <span style={{ fontSize:10, fontWeight:700, color:STATUS_COLOR[job.status], textTransform:"uppercase" }}>{job.status}</span>
+        {/* ── JOB QUEUE ───────────────────────────────── */}
+        {jobs.length > 0 && (
+          <div style={card}>
+            <p style={{ fontSize:11, fontWeight:700, color:"var(--text3)", textTransform:"uppercase", letterSpacing:1, marginBottom:12 }}>🔄 Job Queue</p>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {jobs.slice(0,8).map(job => (
+                <div key={job.id} style={{
+                  display:"flex", alignItems:"center", gap:12,
+                  background:"var(--bg3)", border:"1px solid var(--border2)",
+                  borderRadius:8, padding:"10px 14px",
+                }}>
+                  <span style={{ fontSize:18 }}>{job.source.icon}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:2 }}>
+                      <span style={{ fontSize:12, fontWeight:600 }}>{job.source.name}</span>
+                      <span style={{ fontSize:10, fontWeight:700, color:STATUS[job.status], textTransform:"uppercase" }}>{job.status}</span>
                     </div>
-                    <div style={{ display:"flex", gap:14, fontSize:10, color:"rgba(255,255,255,0.3)", marginBottom:4 }}>
-                      <span>Pages: {job.pages}</span>
-                      <span>Leads: <span style={{ color:"#4ade80", fontWeight:700 }}>{job.leads}</span></span>
-                      {job.duration_ms && <span>{(job.duration_ms/1000).toFixed(1)}s</span>}
-                    </div>
-                    <div style={{ fontFamily:"monospace", fontSize:9, color:"rgba(255,255,255,0.2)", maxHeight:44, overflowY:"auto" }}>
-                      {job.log.map((l,i) => <div key={i}>{l}</div>)}
-                    </div>
+                    <p style={{ fontSize:10, color:"var(--text3)", fontFamily:"monospace" }}>{job.log[job.log.length-1]}</p>
                   </div>
-                ))}
-              </div>
+                  <div style={{ textAlign:"right", flexShrink:0 }}>
+                    <p style={{ fontSize:16, fontWeight:800, color:"var(--green)" }}>{job.leads}</p>
+                    <p style={{ fontSize:9, color:"var(--text3)" }}>leads</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── LEADS TABLE ─────────────────────────────── */}
+        <div style={{ ...card, flex:1 }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+            <p style={{ fontSize:11, fontWeight:700, color:"var(--text3)", textTransform:"uppercase", letterSpacing:1 }}>
+              📋 Leads ({leads.length})
+            </p>
+            <button onClick={fetchLeads} style={{
+              fontSize:11, color:"var(--blue)", background:"none",
+              border:"none", cursor:"pointer", padding:"4px 8px",
+            }}>↻ Refresh</button>
+          </div>
+
+          {leads.length === 0 ? (
+            <div style={{ textAlign:"center", padding:"48px 0" }}>
+              <p style={{ fontSize:36, marginBottom:12 }}>🔍</p>
+              <p style={{ fontSize:15, fontWeight:600, color:"var(--text2)", marginBottom:6 }}>No leads yet</p>
+              <p style={{ fontSize:12, color:"var(--text3)" }}>Type what you're looking for above and hit Search</p>
+            </div>
+          ) : (
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                <thead>
+                  <tr style={{ borderBottom:"1px solid var(--border)" }}>
+                    {["Company","City","State","Phone","Industry","Source"].map(h => (
+                      <th key={h} style={{ textAlign:"left", paddingBottom:10, paddingRight:16, fontSize:10, fontWeight:600, color:"var(--text3)", textTransform:"uppercase", letterSpacing:"0.6px" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {leads.map((lead,i) => (
+                    <tr key={i} style={{ borderBottom:"1px solid var(--border2)" }}>
+                      <td style={{ padding:"9px 16px 9px 0", fontWeight:600 }}>{lead.company_name}</td>
+                      <td style={{ padding:"9px 16px 9px 0", color:"var(--text2)" }}>{lead.city||"—"}</td>
+                      <td style={{ padding:"9px 16px 9px 0", color:"var(--text2)" }}>{lead.state||"—"}</td>
+                      <td style={{ padding:"9px 16px 9px 0", color:"var(--text2)" }}>{lead.phone||"—"}</td>
+                      <td style={{ padding:"9px 16px 9px 0" }}>
+                        <span style={{ background:"var(--tag-bg)", color:"var(--tag-text)", padding:"2px 8px", borderRadius:4, fontSize:10, fontWeight:600 }}>
+                          {lead.category||"—"}
+                        </span>
+                      </td>
+                      <td style={{ padding:"9px 0", color:"var(--text3)", fontSize:11 }}>{hostname(lead.source_url||"")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
-
-          {/* Leads Table */}
-          <div style={{ ...card, flex:1 }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
-              <h2 style={{ margin:0, fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:1 }}>
-                📋 Leads ({leads.length})
-              </h2>
-              <button onClick={fetchLeads} style={{ fontSize:11, color:"#60a5fa", background:"none", border:"none", cursor:"pointer" }}>↻ Refresh</button>
-            </div>
-            {leads.length === 0 ? (
-              <div style={{ textAlign:"center", padding:"40px 0" }}>
-                <p style={{ color:"rgba(255,255,255,0.15)", fontSize:13, margin:"0 0 6px" }}>No leads yet</p>
-                <p style={{ color:"rgba(255,255,255,0.1)", fontSize:11, margin:0 }}>Select targets above and click Run</p>
-              </div>
-            ) : (
-              <div style={{ overflowX:"auto", maxHeight:580, overflowY:"auto" }}>
-                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-                  <thead>
-                    <tr style={{ borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
-                      {["Company","City","State","Phone","Category","Source"].map(h => (
-                        <th key={h} style={{ textAlign:"left", paddingBottom:8, paddingRight:14, fontWeight:500, fontSize:10, color:"rgba(255,255,255,0.25)", textTransform:"uppercase", letterSpacing:"0.6px" }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {leads.map((lead, i) => (
-                      <tr key={i} style={{ borderBottom:"1px solid rgba(255,255,255,0.03)" }}>
-                        <td style={{ padding:"7px 14px 7px 0", fontWeight:600, color:"white" }}>{lead.company_name}</td>
-                        <td style={{ padding:"7px 14px 7px 0", color:"rgba(255,255,255,0.4)" }}>{lead.city||"—"}</td>
-                        <td style={{ padding:"7px 14px 7px 0", color:"rgba(255,255,255,0.4)" }}>{lead.state||"—"}</td>
-                        <td style={{ padding:"7px 14px 7px 0", color:"rgba(255,255,255,0.4)" }}>{lead.phone||"—"}</td>
-                        <td style={{ padding:"7px 14px 7px 0" }}>
-                          <span style={{ background:"#1e3a8a", color:"#93c5fd", padding:"2px 7px", borderRadius:4, fontSize:9, fontWeight:600 }}>
-                            {lead.category||"—"}
-                          </span>
-                        </td>
-                        <td style={{ padding:"7px 0", color:"rgba(255,255,255,0.2)", fontSize:10 }}>
-                          {lead.source_url ? (() => { try { return new URL(lead.source_url).hostname.replace("www.","") } catch { return "—" } })() : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
         </div>
+
       </div>
     </div>
   )
