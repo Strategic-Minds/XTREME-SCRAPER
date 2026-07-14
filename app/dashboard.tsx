@@ -48,7 +48,6 @@ export default function ScraperDashboard() {
   const [stats,    setStats]    = useState({ total:0, today:0, runs:0 })
   const [loading,  setLoading]  = useState(false)
 
-  // All 10 sources always active — hidden from user
   const active = new Set(SOURCES.map(s => s.id))
   const selCount = SOURCES.length
 
@@ -86,12 +85,6 @@ export default function ScraperDashboard() {
 
   const canRun = !loading && !!industry.trim()
 
-  const statusColor: Record<string,string> = {
-    running: "#2563eb",
-    complete: "#16a34a",
-    error: "#dc2626",
-  }
-
   function exportCSV() {
     const rows = [["Company","City","Phone","Industry","Source"],
       ...leads.map(l=>[l.company_name,l.city||"",l.phone||"",l.category||"",l.source_url||""])]
@@ -100,13 +93,13 @@ export default function ScraperDashboard() {
   }
 
   return (
-    <div style={{minHeight:"100vh",background:"#f8fafc",color:"#000000"}}>
+    <div style={{minHeight:"100vh",background:"#f8fafc",color:"#000000",display:"flex",flexDirection:"column"}}>
 
       {/* HEADER */}
       <header style={{
         position:"sticky",top:0,zIndex:100,
         background:"#ffffff",borderBottom:"1.5px solid rgba(0,0,0,0.10)",
-        padding:"0 20px",height:56,
+        padding:"0 20px",height:56,flexShrink:0,
         display:"flex",alignItems:"center",justifyContent:"space-between",
       }}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -126,110 +119,43 @@ export default function ScraperDashboard() {
         </div>
       </header>
 
-      <div style={{maxWidth:860,margin:"0 auto",padding:"24px 16px",display:"flex",flexDirection:"column",gap:20}}>
+      {/* ── MAIN SCROLLABLE AREA — results live here ── */}
+      <div style={{flex:1,overflowY:"auto",padding:"20px 16px 16px",maxWidth:860,width:"100%",margin:"0 auto",boxSizing:"border-box"}}>
 
-        {/* ── SEARCH CARD ── */}
-        <div style={{background:"#ffffff",border:"1.5px solid #2563eb",borderRadius:16,padding:24,boxShadow:"0 4px 24px rgba(37,99,235,0.08)"}}>
-          
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
-            <p style={{fontSize:11,fontWeight:800,color:"#2563eb",textTransform:"uppercase",letterSpacing:1}}>
-              🎯 What are you looking for?
-            </p>
-            {/* Subtle sources pill — all user needs to know */}
-            <span style={{
-              fontSize:11,fontWeight:700,color:"#16a34a",
-              background:"rgba(22,163,74,0.08)",
-              border:"1px solid rgba(22,163,74,0.2)",
-              borderRadius:20,padding:"3px 10px",
-            }}>
-              ✓ {selCount} sources active
-            </span>
-          </div>
-
-          {/* Industry */}
-          <div style={{marginBottom:14}}>
-            <label style={{display:"block",fontSize:11,fontWeight:700,color:"#111111",textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:6}}>
-              Industry / Business Type
-            </label>
-            <input
-              value={industry} onChange={e=>setIndustry(e.target.value)}
-              onKeyDown={e=>e.key==="Enter"&&canRun&&run()}
-              placeholder="e.g. Epoxy Flooring, HVAC, Roofing, Dentist..."
-              style={{fontSize:16,fontWeight:500,color:"#000000",background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.15)",width:"100%",borderRadius:10,padding:"12px 14px",outline:"none"}}
-              autoFocus
-            />
-          </div>
-
-          {/* City / State / Limit */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 120px 120px",gap:12,marginBottom:18}}>
-            <div>
-              <label style={{display:"block",fontSize:11,fontWeight:700,color:"#111111",textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:6}}>City</label>
-              <input value={city} onChange={e=>setCity(e.target.value)} placeholder="Phoenix"
-                style={{color:"#000000",background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.15)",width:"100%",borderRadius:10,padding:"12px 14px",fontSize:14,outline:"none"}} />
-            </div>
-            <div>
-              <label style={{display:"block",fontSize:11,fontWeight:700,color:"#111111",textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:6}}>State</label>
-              <input value={stateVal} onChange={e=>setStateVal(e.target.value)} placeholder="AZ"
-                style={{textTransform:"uppercase",color:"#000000",background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.15)",width:"100%",borderRadius:10,padding:"12px 14px",fontSize:14,outline:"none"}} />
-            </div>
-            <div>
-              <label style={{display:"block",fontSize:11,fontWeight:700,color:"#111111",textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:6}}>Limit</label>
-              <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} min={5} max={500} placeholder="50"
-                style={{color:"#000000",background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.15)",width:"100%",borderRadius:10,padding:"12px 14px",fontSize:14,outline:"none"}} />
-            </div>
-          </div>
-
-          {/* RUN BUTTON */}
-          <button onClick={run} disabled={!canRun} style={{
-            width:"100%",padding:"16px 0",
-            background:canRun?"linear-gradient(135deg,#2563eb,#7c3aed)":"#f1f5f9",
-            color:canRun?"#ffffff":"#999999",
-            border:"none",borderRadius:12,fontSize:15,fontWeight:900,
-            cursor:canRun?"pointer":"not-allowed",
-            letterSpacing:0.5,
-            transition:"opacity 0.15s",
-          }}>
-            {loading
-              ? `⏳ Scanning ${selCount} sources...`
-              : canRun
-                ? `▶ Find Leads${city?" in "+city:""}${stateVal?", "+stateVal.toUpperCase():""}`
-                : "Enter an industry above to begin"}
-          </button>
-        </div>
-
-        {/* ── RESULTS TABLE ── */}
-        {leads.length > 0 && (
-          <div style={{background:"#ffffff",borderRadius:16,border:"1.5px solid rgba(0,0,0,0.10)",overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,0.05)"}}>
-            <div style={{padding:"16px 20px",borderBottom:"1px solid rgba(0,0,0,0.08)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        {/* RESULTS PANEL */}
+        {leads.length > 0 ? (
+          <div style={{background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.10)",borderRadius:14,overflow:"hidden",marginBottom:16}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 18px",borderBottom:"1px solid rgba(0,0,0,0.07)"}}>
               <div>
-                <span style={{fontSize:15,fontWeight:900,color:"#000000"}}>{leads.length} Leads Found</span>
-                <span style={{fontSize:12,color:"#555555",marginLeft:8}}>— ready to export</span>
+                <p style={{fontSize:13,fontWeight:800,color:"#000000"}}>Results</p>
+                <p style={{fontSize:11,color:"#555555",marginTop:2}}>{leads.length} leads found</p>
               </div>
               <button onClick={exportCSV} style={{
-                background:"#16a34a",color:"#ffffff",border:"none",
-                borderRadius:8,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:"pointer",
-              }}>⬇ Export CSV</button>
+                fontSize:12,fontWeight:700,color:"#ffffff",
+                background:"#2563eb",border:"none",borderRadius:8,
+                padding:"8px 16px",cursor:"pointer",
+              }}>Export CSV</button>
             </div>
-            <div style={{overflowX:"auto"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch" as "touch"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:500}}>
                 <thead>
                   <tr style={{background:"#f8fafc"}}>
                     {["Company","City","Phone","Industry","Source"].map(h=>(
-                      <th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,fontWeight:800,color:"#444444",textTransform:"uppercase",letterSpacing:"0.7px",borderBottom:"1px solid rgba(0,0,0,0.08)"}}>{h}</th>
+                      <th key={h} style={{textAlign:"left",padding:"10px 14px",fontSize:10,fontWeight:800,color:"#444444",textTransform:"uppercase",letterSpacing:"0.6px",borderBottom:"1px solid rgba(0,0,0,0.07)"}}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {leads.map((l,i)=>(
                     <tr key={i} style={{borderBottom:"1px solid rgba(0,0,0,0.05)",background:i%2===0?"#ffffff":"#fafafa"}}>
-                      <td style={{padding:"10px 14px",fontWeight:700,color:"#000000"}}>{l.company_name}</td>
+                      <td style={{padding:"10px 14px",fontWeight:600,color:"#000000"}}>{l.company_name}</td>
                       <td style={{padding:"10px 14px",color:"#333333"}}>{l.city||"—"}</td>
-                      <td style={{padding:"10px 14px",color:"#2563eb",fontFamily:"monospace"}}>{l.phone||"—"}</td>
+                      <td style={{padding:"10px 14px",color:"#333333"}}>{l.phone||"—"}</td>
                       <td style={{padding:"10px 14px",color:"#333333"}}>{l.category||"—"}</td>
                       <td style={{padding:"10px 14px"}}>
                         {l.source_url
-                          ? <a href={l.source_url} target="_blank" rel="noopener noreferrer" style={{color:"#2563eb",fontSize:11,fontWeight:600,textDecoration:"none"}}>View →</a>
-                          : <span style={{color:"#aaaaaa"}}>—</span>}
+                          ? <a href={l.source_url} target="_blank" rel="noopener noreferrer" style={{color:"#2563eb",textDecoration:"none",fontWeight:600}}>View</a>
+                          : <span style={{color:"#999999"}}>—</span>}
                       </td>
                     </tr>
                   ))}
@@ -237,52 +163,101 @@ export default function ScraperDashboard() {
               </table>
             </div>
           </div>
-        )}
-
-        {/* ── RUN LOG (live activity) ── */}
-        {jobs.length > 0 && (
-          <div style={{background:"#ffffff",borderRadius:16,border:"1.5px solid rgba(0,0,0,0.10)",overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,0.05)"}}>
-            <div style={{padding:"14px 20px",borderBottom:"1px solid rgba(0,0,0,0.08)"}}>
-              <span style={{fontSize:13,fontWeight:800,color:"#000000"}}>⚡ Live Activity</span>
-            </div>
-            <div style={{padding:"12px 16px",display:"flex",flexDirection:"column",gap:8}}>
-              {jobs.slice(0,10).map(job=>(
-                <div key={job.id} style={{
-                  display:"flex",alignItems:"center",gap:12,
-                  padding:"10px 14px",borderRadius:10,
-                  background:"#f8fafc",border:"1px solid rgba(0,0,0,0.07)",
-                }}>
-                  <span style={{fontSize:20,flexShrink:0}}>{job.source.icon}</span>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontSize:13,fontWeight:700,color:"#000000"}}>{job.source.name}</span>
-                      <span style={{
-                        fontSize:10,fontWeight:700,color:statusColor[job.status],
-                        background:statusColor[job.status]+"18",
-                        borderRadius:4,padding:"1px 6px",textTransform:"uppercase",
-                      }}>{job.status}</span>
-                    </div>
-                    <p style={{fontSize:11,color:"#555555",marginTop:2}}>{job.log[job.log.length-1]}</p>
-                  </div>
-                  {job.status==="complete" && (
-                    <span style={{fontSize:14,fontWeight:900,color:"#16a34a",flexShrink:0}}>{job.leads} leads</span>
-                  )}
-                </div>
-              ))}
-            </div>
+        ) : (
+          /* EMPTY STATE */
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"60px 20px",color:"#888888",textAlign:"center"}}>
+            <span style={{fontSize:48,marginBottom:16}}>🔍</span>
+            <p style={{fontSize:16,fontWeight:700,color:"#333333",marginBottom:6}}>Ready to find leads</p>
+            <p style={{fontSize:13,color:"#888888"}}>Fill in the card below and hit Run</p>
           </div>
         )}
 
-        {/* Empty state */}
-        {leads.length === 0 && jobs.length === 0 && (
-          <div style={{textAlign:"center",padding:"48px 20px",color:"#aaaaaa"}}>
-            <p style={{fontSize:40,marginBottom:12}}>🔍</p>
-            <p style={{fontSize:15,fontWeight:700,color:"#555555"}}>Ready to find leads</p>
-            <p style={{fontSize:13,marginTop:6}}>Enter your industry above and hit Run</p>
+        {/* RUN ACTIVITY — mini status pills while running */}
+        {jobs.length > 0 && (
+          <div style={{marginBottom:16,display:"flex",flexWrap:"wrap",gap:8}}>
+            {jobs.slice(0,10).map(job=>(
+              <div key={job.id} style={{
+                display:"flex",alignItems:"center",gap:6,
+                background:"#ffffff",border:"1px solid rgba(0,0,0,0.10)",
+                borderRadius:20,padding:"5px 12px",fontSize:11,fontWeight:600,
+              }}>
+                <span style={{
+                  width:7,height:7,borderRadius:"50%",flexShrink:0,
+                  background: job.status==="running"?"#2563eb":job.status==="complete"?"#16a34a":"#dc2626",
+                }}/>
+                <span style={{color:"#000000"}}>{job.source.name}</span>
+                {job.status==="complete"&&<span style={{color:"#16a34a"}}>+{job.leads}</span>}
+                {job.status==="running"&&<span style={{color:"#2563eb",animation:"pulse 1s infinite"}}>…</span>}
+              </div>
+            ))}
           </div>
         )}
 
       </div>
+
+      {/* ── SEARCH CARD — PINNED TO BOTTOM ── */}
+      <div style={{
+        flexShrink:0,
+        borderTop:"1.5px solid rgba(0,0,0,0.10)",
+        background:"#ffffff",
+        padding:"16px",
+        boxShadow:"0 -4px 24px rgba(0,0,0,0.06)",
+      }}>
+        <div style={{maxWidth:860,margin:"0 auto"}}>
+
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+            <p style={{fontSize:11,fontWeight:800,color:"#2563eb",textTransform:"uppercase",letterSpacing:1}}>
+              🎯 What are you looking for?
+            </p>
+            <span style={{
+              fontSize:11,fontWeight:700,color:"#16a34a",
+              background:"rgba(22,163,74,0.08)",
+              border:"1px solid rgba(22,163,74,0.2)",
+              borderRadius:20,padding:"3px 10px",
+            }}>✓ {selCount} sources active</span>
+          </div>
+
+          {/* Industry */}
+          <div style={{marginBottom:12}}>
+            <input
+              value={industry} onChange={e=>setIndustry(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&canRun&&run()}
+              placeholder="Industry / Business Type — e.g. Epoxy Flooring, HVAC, Dentist..."
+              style={{
+                fontSize:15,fontWeight:500,color:"#000000",
+                background:"#f8fafc",border:"1.5px solid rgba(0,0,0,0.15)",
+                width:"100%",borderRadius:10,padding:"12px 14px",outline:"none",
+                boxSizing:"border-box",
+              }}
+              autoFocus
+            />
+          </div>
+
+          {/* City / State / Limit / Button */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 100px 100px auto",gap:10,alignItems:"flex-end"}}>
+            <input value={city} onChange={e=>setCity(e.target.value)} placeholder="City (e.g. Phoenix)"
+              style={{color:"#000000",background:"#f8fafc",border:"1.5px solid rgba(0,0,0,0.15)",
+                borderRadius:10,padding:"11px 14px",fontSize:14,outline:"none"}} />
+            <input value={stateVal} onChange={e=>setStateVal(e.target.value)} placeholder="State"
+              style={{textTransform:"uppercase",color:"#000000",background:"#f8fafc",border:"1.5px solid rgba(0,0,0,0.15)",
+                borderRadius:10,padding:"11px 14px",fontSize:14,outline:"none"}} />
+            <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="50" min={1} max={500}
+              style={{color:"#000000",background:"#f8fafc",border:"1.5px solid rgba(0,0,0,0.15)",
+                borderRadius:10,padding:"11px 14px",fontSize:14,outline:"none"}} />
+            <button onClick={run} disabled={!canRun} style={{
+              padding:"11px 28px",borderRadius:10,border:"none",cursor:canRun?"pointer":"not-allowed",
+              fontWeight:800,fontSize:14,letterSpacing:0.3,
+              background: canRun?"#2563eb":"#e2e8f0",
+              color: canRun?"#ffffff":"#94a3b8",
+              transition:"all 0.15s",whiteSpace:"nowrap",
+            }}>
+              {loading ? "Running…" : "▶ Run"}
+            </button>
+          </div>
+
+        </div>
+      </div>
+
     </div>
   )
 }
