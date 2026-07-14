@@ -1,0 +1,6 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install --legacy-peer-deps",
+  "crons": [{"path": "/api/validator", "schedule": "*/5 * * * *"}]
+}
