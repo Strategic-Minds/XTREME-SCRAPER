@@ -128,3 +128,6 @@ a:hover { text-decoration: underline; }
 @media (max-width: 640px) {
   body { font-size: 15px; }
 }
+
+.sources-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+@media(max-width:480px){.sources-grid{grid-template-columns:1fr;}}
