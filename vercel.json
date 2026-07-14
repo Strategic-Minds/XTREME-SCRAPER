@@ -2,5 +2,19 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "installCommand": "npm install --legacy-peer-deps",
-  "crons": [{"path": "/api/validator", "schedule": "*/5 * * * *"}]
+  "functions": {
+    "app/api/**": {
+      "maxDuration": 60
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/discover",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/validator",
+      "schedule": "0 */6 * * *"
+    }
+  ]
 }
