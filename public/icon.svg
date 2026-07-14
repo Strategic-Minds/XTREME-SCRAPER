@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="32" fill="#090B10"/>
+  <text x="96" y="110" font-size="80" text-anchor="middle" fill="#2563eb" font-family="system-ui" font-weight="900">⚡</text>
+  <text x="96" y="160" font-size="22" text-anchor="middle" fill="white" font-family="system-ui" font-weight="700" letter-spacing="2">XPS</text>
+</svg>
