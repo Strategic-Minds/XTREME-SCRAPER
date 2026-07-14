@@ -1,8 +1,7 @@
 "use client"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 
 interface Lead {
-  id?: string
   company_name: string
   phone?: string
   email?: string
@@ -11,7 +10,6 @@ interface Lead {
   state?: string
   category?: string
   source_url?: string
-  scraped_at?: string
 }
 
 interface ScrapeJob {
@@ -24,53 +22,115 @@ interface ScrapeJob {
   log: string[]
 }
 
-export default function ScraperDashboard() {
-  const [url, setUrl]           = useState("")
-  const [industry, setIndustry] = useState("Epoxy Flooring")
-  const [maxPages, setMaxPages] = useState(50)
-  const [jobs, setJobs]         = useState<ScrapeJob[]>([])
-  const [leads, setLeads]       = useState<Lead[]>([])
-  const [stats, setStats]       = useState({ total: 0, today: 0, runs: 0 })
-  const [loading, setLoading]   = useState(false)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+// ── Location data ─────────────────────────────────────────────────
+const US_STATES: Record<string, string[]> = {
+  AZ: ["Phoenix","Scottsdale","Tempe","Mesa","Chandler","Gilbert","Glendale","Peoria","Tucson","Flagstaff","Yuma","Surprise","Avondale","Goodyear","Queen Creek"],
+  TX: ["Houston","Dallas","Austin","San Antonio","Fort Worth","El Paso","Arlington","Corpus Christi","Plano","Lubbock"],
+  CA: ["Los Angeles","San Diego","San Francisco","San Jose","Fresno","Sacramento","Long Beach","Oakland","Bakersfield","Anaheim"],
+  FL: ["Miami","Orlando","Tampa","Jacksonville","St. Petersburg","Hialeah","Tallahassee","Fort Lauderdale","Port St. Lucie","Cape Coral"],
+  GA: ["Atlanta","Columbus","Augusta","Savannah","Athens","Sandy Springs","Roswell","Macon","Albany","Johns Creek"],
+  NY: ["New York City","Buffalo","Rochester","Yonkers","Syracuse","Albany","New Rochelle","Mount Vernon","Schenectady","Utica"],
+  CO: ["Denver","Colorado Springs","Aurora","Fort Collins","Lakewood","Thornton","Arvada","Westminster","Pueblo","Centennial"],
+  NV: ["Las Vegas","Henderson","Reno","North Las Vegas","Sparks","Carson City","Fernley","Elko","Mesquite","Boulder City"],
+  WA: ["Seattle","Spokane","Tacoma","Vancouver","Bellevue","Kent","Everett","Renton","Spokane Valley","Kirkland"],
+  IL: ["Chicago","Aurora","Joliet","Naperville","Rockford","Springfield","Elgin","Peoria","Champaign","Waukegan"],
+  OH: ["Columbus","Cleveland","Cincinnati","Toledo","Akron","Dayton","Parma","Canton","Youngstown","Lorain"],
+  NC: ["Charlotte","Raleigh","Greensboro","Durham","Winston-Salem","Fayetteville","Cary","Wilmington","High Point","Concord"],
+  MI: ["Detroit","Grand Rapids","Warren","Sterling Heights","Ann Arbor","Lansing","Flint","Dearborn","Livonia","Westland"],
+  PA: ["Philadelphia","Pittsburgh","Allentown","Erie","Reading","Scranton","Bethlehem","Lancaster","Harrisburg","Altoona"],
+  TN: ["Nashville","Memphis","Knoxville","Chattanooga","Clarksville","Murfreesboro","Jackson","Franklin","Johnson City","Bartlett"],
+}
 
-  // Fetch stats on mount
+const STATE_NAMES: Record<string, string> = {
+  AZ:"Arizona", TX:"Texas", CA:"California", FL:"Florida", GA:"Georgia",
+  NY:"New York", CO:"Colorado", NV:"Nevada", WA:"Washington", IL:"Illinois",
+  OH:"Ohio", NC:"North Carolina", MI:"Michigan", PA:"Pennsylvania", TN:"Tennessee",
+}
+
+const INDUSTRIES = [
+  "Epoxy Flooring","Concrete Polishing","Garage Floor Coating","Decorative Concrete",
+  "Industrial Coatings","General Contractor","Painting Contractor","Flooring Contractor",
+  "Plumbing","Electrical","HVAC","Roofing","Landscaping","Commercial Cleaning",
+]
+
+const SOURCES: Record<string, string> = {
+  yellowpages: "Yellow Pages",
+  yelp:        "Yelp",
+  angies:      "Angi (Angie's List)",
+  google:      "Google Maps",
+}
+
+function buildTargetUrl(source: string, city: string, state: string, industry: string): string {
+  const slug     = industry.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"")
+  const citySlug = city.toLowerCase().replace(/\s+/g,"-")
+  const stateAb  = state.toLowerCase()
+  const query    = encodeURIComponent(industry)
+  const loc      = encodeURIComponent(`${city}, ${state}`)
+
+  switch (source) {
+    case "yellowpages":
+      return `https://www.yellowpages.com/${citySlug}-${stateAb}/mip/${slug}`
+    case "yelp":
+      return `https://www.yelp.com/search?find_desc=${query}&find_loc=${loc}`
+    case "angies":
+      return `https://www.angieslist.com/companylist/us/${stateAb}/${citySlug}/${slug}-reviews-6988.htm`
+    case "google":
+      return `https://www.google.com/maps/search/${query}+near+${loc}`
+    default:
+      return `https://www.yellowpages.com/${citySlug}-${stateAb}/mip/${slug}`
+  }
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  queued: "#facc15", running: "#60a5fa", complete: "#4ade80", error: "#f87171",
+}
+
+export default function ScraperDashboard() {
+  const [selectedState,    setSelectedState]    = useState("AZ")
+  const [selectedCity,     setSelectedCity]     = useState("Phoenix")
+  const [selectedIndustry, setSelectedIndustry] = useState("Epoxy Flooring")
+  const [selectedSource,   setSelectedSource]   = useState("yellowpages")
+  const [customUrl,        setCustomUrl]        = useState("")
+  const [useCustomUrl,     setUseCustomUrl]     = useState(false)
+  const [maxPages,         setMaxPages]         = useState(30)
+  const [jobs,             setJobs]             = useState<ScrapeJob[]>([])
+  const [leads,            setLeads]            = useState<Lead[]>([])
+  const [stats,            setStats]            = useState({ total: 0, today: 0, runs: 0 })
+  const [loading,          setLoading]          = useState(false)
+
+  const cities     = US_STATES[selectedState] || []
+  const targetUrl  = useCustomUrl ? customUrl : buildTargetUrl(selectedSource, selectedCity, selectedState, selectedIndustry)
+
+  // Auto-reset city when state changes
   useEffect(() => {
-    fetchStats()
-    fetchLeads()
-  }, [])
+    const c = US_STATES[selectedState]
+    if (c && !c.includes(selectedCity)) setSelectedCity(c[0])
+  }, [selectedState])
+
+  useEffect(() => { fetchStats(); fetchLeads() }, [])
 
   async function fetchStats() {
     try {
       const r = await fetch("/api/stats")
-      if (r.ok) {
-        const d = await r.json()
-        setStats({
-          total: d.total_leads ?? 0,
-          today: d.new_today   ?? 0,
-          runs:  d.total_runs  ?? 0,
-        })
-      }
+      if (r.ok) { const d = await r.json(); setStats({ total: d.total_leads ?? 0, today: d.new_today ?? 0, runs: d.total_runs ?? 0 }) }
     } catch {}
   }
 
   async function fetchLeads() {
     try {
-      const r = await fetch("/api/leads?limit=50")
-      if (r.ok) {
-        const d = await r.json()
-        setLeads(Array.isArray(d) ? d : (d.leads ?? []))
-      }
+      const r = await fetch("/api/leads?limit=100")
+      if (r.ok) { const d = await r.json(); setLeads(Array.isArray(d) ? d : (d.leads ?? [])) }
     } catch {}
   }
 
   async function runScrape() {
+    const url = targetUrl
     if (!url.trim()) return
     setLoading(true)
     const jobId = Date.now().toString()
     const job: ScrapeJob = {
-      id: jobId, url, status: "running",
-      pages: 0, leads: 0, log: [`Starting scrape: ${url}`],
+      id: jobId, url, status: "running", pages: 0, leads: 0,
+      log: [`▶ Starting: ${selectedCity}, ${selectedState} — ${selectedIndustry}`, `URL: ${url}`],
     }
     setJobs(prev => [job, ...prev])
 
@@ -78,21 +138,27 @@ export default function ScraperDashboard() {
       const r = await fetch("/api/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, industry, max_pages: maxPages }),
+        body: JSON.stringify({
+          url,
+          industry:  selectedIndustry,
+          city:      selectedCity,
+          state:     selectedState,
+          max_pages: maxPages,
+        }),
       })
       const data = await r.json()
       setJobs(prev => prev.map(j =>
-        j.id === jobId ? {
+        j.id !== jobId ? j : {
           ...j,
           status: r.ok ? "complete" : "error",
-          pages:  data.pages_scraped ?? data.pages_count ?? 0,
+          pages:  data.pages_scraped ?? 0,
           leads:  data.leads_saved   ?? data.leads_found ?? 0,
           duration_ms: data.duration_ms,
           log: [...j.log, r.ok
-            ? `✅ Done — ${data.leads_saved ?? 0} leads saved to Supabase in ${data.duration_ms}ms`
-            : `❌ Error: ${data.error}`
+            ? `✅ ${data.leads_saved ?? 0} leads saved — ${(data.duration_ms/1000).toFixed(1)}s (${data.method})`
+            : `❌ ${data.error}`
           ],
-        } : j
+        }
       ))
       if (r.ok) { fetchStats(); fetchLeads() }
     } catch (e: unknown) {
@@ -103,106 +169,164 @@ export default function ScraperDashboard() {
     setLoading(false)
   }
 
-  const AZ_TARGETS = [
-    "https://www.yellowpages.com/phoenix-az/mip/epoxy-flooring",
-    "https://www.yellowpages.com/scottsdale-az/mip/epoxy-flooring",
-    "https://www.yellowpages.com/tucson-az/mip/epoxy-flooring",
-    "https://www.yelp.com/search?find_desc=epoxy+flooring&find_loc=Phoenix%2C+AZ",
-    "https://www.yelp.com/search?find_desc=garage+floor+coating&find_loc=Scottsdale%2C+AZ",
-    "https://www.angieslist.com/companylist/us/az/phoenix/epoxy-flooring-reviews-6988.htm",
-  ]
+  const S = (label: string, desc?: string) => (
+    <div>
+      <label style={{ display:"block", fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4, textTransform:"uppercase", letterSpacing:1 }}>{label}</label>
+      {desc && <p style={{ fontSize:10, color:"rgba(255,255,255,0.25)", margin:"0 0 4px" }}>{desc}</p>}
+    </div>
+  )
 
-  const STATUS_COLOR = {
-    queued: "text-yellow-400", running: "text-blue-400",
-    complete: "text-green-400", error: "text-red-400",
+  const inputStyle: React.CSSProperties = {
+    width:"100%", background:"#1a1d26", border:"1px solid rgba(255,255,255,0.08)",
+    borderRadius:8, padding:"8px 10px", color:"white", fontSize:13, outline:"none",
   }
+  const selectStyle: React.CSSProperties = { ...inputStyle, cursor:"pointer" }
+  const cardStyle: React.CSSProperties   = { background:"#0f1117", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:20 }
 
   return (
-    <div className="min-h-screen text-white" style={{ background: "#090B10", fontFamily: "system-ui" }}>
+    <div style={{ minHeight:"100vh", background:"#090B10", color:"white", fontFamily:"system-ui,-apple-system,sans-serif" }}>
+
       {/* Header */}
-      <header className="border-b border-white/10 px-8 py-5 flex items-center justify-between">
+      <header style={{ borderBottom:"1px solid rgba(255,255,255,0.06)", padding:"16px 32px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <div>
-          <h1 className="text-xl font-bold tracking-tight">⚡ XTREME SCRAPER</h1>
-          <p className="text-xs text-white/40 mt-0.5">Asyncio Lead Discovery → Supabase</p>
+          <h1 style={{ margin:0, fontSize:18, fontWeight:700, letterSpacing:-0.5 }}>⚡ XTREME SCRAPER</h1>
+          <p style={{ margin:"2px 0 0", fontSize:11, color:"rgba(255,255,255,0.3)" }}>Asyncio Lead Discovery → Supabase</p>
         </div>
-        <div className="flex gap-6 text-center">
-          <div><p className="text-2xl font-bold text-green-400">{stats.total}</p><p className="text-xs text-white/40">Total Leads</p></div>
-          <div><p className="text-2xl font-bold text-blue-400">{stats.today}</p><p className="text-xs text-white/40">Today</p></div>
-          <div><p className="text-2xl font-bold text-purple-400">{stats.runs}</p><p className="text-xs text-white/40">Scrape Runs</p></div>
+        <div style={{ display:"flex", gap:24 }}>
+          {[["Total Leads", stats.total, "#4ade80"], ["Today", stats.today, "#60a5fa"], ["Runs", stats.runs, "#a78bfa"]].map(([label, val, col]) => (
+            <div key={String(label)} style={{ textAlign:"center" }}>
+              <p style={{ margin:0, fontSize:22, fontWeight:700, color:String(col) }}>{val}</p>
+              <p style={{ margin:0, fontSize:10, color:"rgba(255,255,255,0.3)", textTransform:"uppercase", letterSpacing:1 }}>{label}</p>
+            </div>
+          ))}
         </div>
       </header>
 
-      <div className="grid grid-cols-12 gap-6 p-8">
-        {/* LEFT — Controls */}
-        <div className="col-span-4 space-y-4">
-          {/* Scrape form */}
-          <div className="rounded-xl border border-white/10 p-5" style={{ background: "#0f1117" }}>
-            <h2 className="text-sm font-semibold mb-4 text-white/70 uppercase tracking-wider">New Scrape Job</h2>
-            <label className="block text-xs text-white/50 mb-1">Target URL</label>
-            <input
-              value={url} onChange={e => setUrl(e.target.value)}
-              placeholder="https://yellowpages.com/..."
-              className="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 mb-3"
-              style={{ background: "#1a1d26" }}
-            />
-            <label className="block text-xs text-white/50 mb-1">Industry / Category</label>
-            <input
-              value={industry} onChange={e => setIndustry(e.target.value)}
-              className="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 mb-3"
-              style={{ background: "#1a1d26" }}
-            />
-            <label className="block text-xs text-white/50 mb-1">Max Pages</label>
-            <input
-              type="number" value={maxPages} onChange={e => setMaxPages(Number(e.target.value))}
-              className="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 mb-4"
-              style={{ background: "#1a1d26" }}
-            />
-            <button
-              onClick={runScrape} disabled={loading || !url.trim()}
-              className="w-full rounded-lg py-2.5 text-sm font-semibold transition-all"
-              style={{ background: loading ? "#1a1d26" : "#2563eb", color: "white", cursor: loading ? "not-allowed" : "pointer" }}
-            >
-              {loading ? "⏳ Scraping..." : "▶ Run Scrape"}
-            </button>
+      <div style={{ display:"grid", gridTemplateColumns:"340px 1fr", gap:24, padding:24 }}>
+
+        {/* ── LEFT COLUMN ───────────────────────────────── */}
+        <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+
+          {/* 📍 LOCATION BOX */}
+          <div style={{ ...cardStyle, border:"1px solid rgba(96,165,250,0.25)" }}>
+            <h2 style={{ margin:"0 0 16px", fontSize:11, fontWeight:600, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:1 }}>
+              📍 Target Location
+            </h2>
+
+            {S("State")}
+            <select value={selectedState} onChange={e => setSelectedState(e.target.value)} style={{ ...selectStyle, marginBottom:12 }}>
+              {Object.entries(STATE_NAMES).map(([code, name]) => (
+                <option key={code} value={code}>{name} ({code})</option>
+              ))}
+            </select>
+
+            {S("City")}
+            <select value={selectedCity} onChange={e => setSelectedCity(e.target.value)} style={{ ...selectStyle, marginBottom:12 }}>
+              {cities.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+
+            {S("Industry / Category")}
+            <select value={selectedIndustry} onChange={e => setSelectedIndustry(e.target.value)} style={{ ...selectStyle, marginBottom:12 }}>
+              {INDUSTRIES.map(i => <option key={i} value={i}>{i}</option>)}
+            </select>
+
+            {S("Data Source")}
+            <select value={selectedSource} onChange={e => setSelectedSource(e.target.value)} style={{ ...selectStyle, marginBottom:16 }}>
+              {Object.entries(SOURCES).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+
+            {/* Generated URL preview */}
+            <div style={{ background:"#0a0c14", border:"1px solid rgba(255,255,255,0.06)", borderRadius:8, padding:"8px 10px", marginBottom:16 }}>
+              <p style={{ margin:"0 0 4px", fontSize:10, color:"rgba(255,255,255,0.3)", textTransform:"uppercase" }}>Generated URL</p>
+              <p style={{ margin:0, fontSize:10, color:"rgba(96,165,250,0.8)", wordBreak:"break-all" }}>{useCustomUrl ? customUrl || "—" : targetUrl}</p>
+            </div>
+
+            {/* Custom URL toggle */}
+            <label style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", marginBottom: useCustomUrl ? 10 : 0, fontSize:12, color:"rgba(255,255,255,0.4)" }}>
+              <input type="checkbox" checked={useCustomUrl} onChange={e => setUseCustomUrl(e.target.checked)} style={{ accentColor:"#60a5fa" }} />
+              Use custom URL instead
+            </label>
+            {useCustomUrl && (
+              <input value={customUrl} onChange={e => setCustomUrl(e.target.value)}
+                placeholder="https://..."
+                style={{ ...inputStyle, marginBottom:0 }} />
+            )}
           </div>
 
-          {/* Quick targets */}
-          <div className="rounded-xl border border-white/10 p-5" style={{ background: "#0f1117" }}>
-            <h2 className="text-sm font-semibold mb-3 text-white/70 uppercase tracking-wider">AZ Quick Targets</h2>
-            <div className="space-y-2">
-              {AZ_TARGETS.map((t, i) => (
-                <button key={i} onClick={() => setUrl(t)}
-                  className="w-full text-left text-xs px-3 py-2 rounded-lg border border-white/5 hover:border-blue-500/50 transition-all truncate"
-                  style={{ background: "#1a1d26", color: url === t ? "#60a5fa" : "#9ca3af" }}
-                  title={t}
-                >
-                  {t.replace("https://www.","").split("/").slice(0,2).join("/")}
+          {/* Scrape settings */}
+          <div style={cardStyle}>
+            <h2 style={{ margin:"0 0 14px", fontSize:11, fontWeight:600, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:1 }}>
+              ⚙️ Settings
+            </h2>
+            {S("Max Pages")}
+            <input type="number" value={maxPages} min={1} max={200}
+              onChange={e => setMaxPages(Number(e.target.value))}
+              style={{ ...inputStyle, marginBottom:0 }} />
+          </div>
+
+          {/* Run button */}
+          <button onClick={runScrape} disabled={loading}
+            style={{
+              width:"100%", padding:"14px 0", borderRadius:10, border:"none",
+              background: loading ? "#1a1d26" : "linear-gradient(135deg,#2563eb,#7c3aed)",
+              color:"white", fontSize:14, fontWeight:700, cursor: loading ? "not-allowed" : "pointer",
+              letterSpacing:0.5,
+            }}>
+            {loading ? "⏳ Scraping..." : `▶ Scrape ${selectedCity}, ${selectedState}`}
+          </button>
+
+          {/* Quick AZ targets */}
+          <div style={cardStyle}>
+            <h2 style={{ margin:"0 0 12px", fontSize:11, fontWeight:600, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:1 }}>
+              🎯 AZ Quick Targets
+            </h2>
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {[
+                ["Phoenix", "AZ", "Epoxy Flooring", "yellowpages"],
+                ["Scottsdale","AZ","Epoxy Flooring","yellowpages"],
+                ["Tucson","AZ","Concrete Polishing","yelp"],
+                ["Mesa","AZ","Garage Floor Coating","yelp"],
+                ["Gilbert","AZ","Decorative Concrete","yellowpages"],
+              ].map(([c,s,i,src]) => (
+                <button key={c+i} onClick={() => {
+                  setSelectedCity(c); setSelectedState(s)
+                  setSelectedIndustry(i); setSelectedSource(src); setUseCustomUrl(false)
+                }}
+                  style={{
+                    textAlign:"left", padding:"7px 10px", borderRadius:7, border:"1px solid rgba(255,255,255,0.05)",
+                    background:"#1a1d26", color: selectedCity===c&&selectedState===s ? "#60a5fa" : "rgba(255,255,255,0.45)",
+                    fontSize:11, cursor:"pointer",
+                  }}>
+                  {c}, {s} — {i}
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* RIGHT — Jobs + Leads */}
-        <div className="col-span-8 space-y-4">
-          {/* Active jobs */}
+        {/* ── RIGHT COLUMN ──────────────────────────────── */}
+        <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+
+          {/* Job queue */}
           {jobs.length > 0 && (
-            <div className="rounded-xl border border-white/10 p-5" style={{ background: "#0f1117" }}>
-              <h2 className="text-sm font-semibold mb-3 text-white/70 uppercase tracking-wider">Job Queue</h2>
-              <div className="space-y-3">
-                {jobs.slice(0, 5).map(job => (
-                  <div key={job.id} className="rounded-lg border border-white/5 p-4" style={{ background: "#1a1d26" }}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-white/60 truncate max-w-xs">{job.url}</span>
-                      <span className={`text-xs font-bold uppercase ${STATUS_COLOR[job.status]}`}>{job.status}</span>
+            <div style={cardStyle}>
+              <h2 style={{ margin:"0 0 14px", fontSize:11, fontWeight:600, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:1 }}>
+                🔄 Job Queue
+              </h2>
+              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                {jobs.slice(0,5).map(job => (
+                  <div key={job.id} style={{ background:"#1a1d26", border:"1px solid rgba(255,255,255,0.05)", borderRadius:9, padding:14 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+                      <span style={{ fontSize:11, color:"rgba(255,255,255,0.5)", maxWidth:"80%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{job.url}</span>
+                      <span style={{ fontSize:11, fontWeight:700, color:STATUS_COLOR[job.status], textTransform:"uppercase" }}>{job.status}</span>
                     </div>
-                    <div className="flex gap-4 text-xs text-white/40 mb-2">
+                    <div style={{ display:"flex", gap:16, fontSize:11, color:"rgba(255,255,255,0.3)", marginBottom:6 }}>
                       <span>Pages: {job.pages}</span>
-                      <span>Leads: <span className="text-green-400 font-bold">{job.leads}</span></span>
+                      <span>Leads: <span style={{ color:"#4ade80", fontWeight:700 }}>{job.leads}</span></span>
                       {job.duration_ms && <span>{(job.duration_ms/1000).toFixed(1)}s</span>}
                     </div>
-                    <div className="text-xs font-mono text-white/30 space-y-0.5 max-h-16 overflow-y-auto">
-                      {job.log.map((l, i) => <div key={i}>{l}</div>)}
+                    <div style={{ fontFamily:"monospace", fontSize:10, color:"rgba(255,255,255,0.25)", maxHeight:56, overflowY:"auto" }}>
+                      {job.log.map((l,i) => <div key={i}>{l}</div>)}
                     </div>
                   </div>
                 ))}
@@ -211,38 +335,41 @@ export default function ScraperDashboard() {
           )}
 
           {/* Leads table */}
-          <div className="rounded-xl border border-white/10 p-5" style={{ background: "#0f1117" }}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-white/70 uppercase tracking-wider">Latest Leads ({leads.length})</h2>
-              <button onClick={fetchLeads} className="text-xs text-blue-400 hover:text-blue-300">↻ Refresh</button>
+          <div style={{ ...cardStyle, flex:1 }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+              <h2 style={{ margin:0, fontSize:11, fontWeight:600, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:1 }}>
+                📋 Leads ({leads.length})
+              </h2>
+              <button onClick={fetchLeads} style={{ fontSize:11, color:"#60a5fa", background:"none", border:"none", cursor:"pointer" }}>↻ Refresh</button>
             </div>
             {leads.length === 0 ? (
-              <p className="text-xs text-white/30 text-center py-8">No leads yet — run a scrape job above</p>
+              <p style={{ textAlign:"center", color:"rgba(255,255,255,0.2)", fontSize:12, padding:"32px 0" }}>
+                No leads yet — select a location and run a scrape job
+              </p>
             ) : (
-              <div className="overflow-auto max-h-[500px]">
-                <table className="w-full text-xs">
+              <div style={{ overflowX:"auto", maxHeight:600, overflowY:"auto" }}>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                   <thead>
-                    <tr className="text-white/30 border-b border-white/5">
-                      <th className="text-left pb-2 font-medium">Company</th>
-                      <th className="text-left pb-2 font-medium">City</th>
-                      <th className="text-left pb-2 font-medium">Phone</th>
-                      <th className="text-left pb-2 font-medium">Category</th>
-                      <th className="text-left pb-2 font-medium">Source</th>
+                    <tr style={{ color:"rgba(255,255,255,0.25)", borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+                      {["Company","City","State","Phone","Category","Source"].map(h => (
+                        <th key={h} style={{ textAlign:"left", paddingBottom:8, fontWeight:500, paddingRight:12 }}>{h}</th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody>
                     {leads.map((lead, i) => (
-                      <tr key={i} className="hover:bg-white/5 transition-colors">
-                        <td className="py-2 pr-4 font-medium text-white">{lead.company_name}</td>
-                        <td className="py-2 pr-4 text-white/50">{lead.city || "—"}</td>
-                        <td className="py-2 pr-4 text-white/50">{lead.phone || "—"}</td>
-                        <td className="py-2 pr-4">
-                          <span className="px-2 py-0.5 rounded text-xs" style={{ background: "#1e3a8a", color: "#93c5fd" }}>
-                            {lead.category || "unknown"}
+                      <tr key={i} style={{ borderBottom:"1px solid rgba(255,255,255,0.03)" }}>
+                        <td style={{ padding:"7px 12px 7px 0", fontWeight:600, color:"white" }}>{lead.company_name}</td>
+                        <td style={{ padding:"7px 12px 7px 0", color:"rgba(255,255,255,0.45)" }}>{lead.city || "—"}</td>
+                        <td style={{ padding:"7px 12px 7px 0", color:"rgba(255,255,255,0.45)" }}>{lead.state || "—"}</td>
+                        <td style={{ padding:"7px 12px 7px 0", color:"rgba(255,255,255,0.45)" }}>{lead.phone || "—"}</td>
+                        <td style={{ padding:"7px 12px 7px 0" }}>
+                          <span style={{ background:"#1e3a8a", color:"#93c5fd", padding:"2px 7px", borderRadius:4, fontSize:10 }}>
+                            {lead.category || "—"}
                           </span>
                         </td>
-                        <td className="py-2 text-white/30 truncate max-w-xs">
-                          {lead.source_url ? new URL(lead.source_url).hostname.replace("www.","") : "—"}
+                        <td style={{ padding:"7px 0", color:"rgba(255,255,255,0.25)", fontSize:10 }}>
+                          {lead.source_url ? (() => { try { return new URL(lead.source_url).hostname.replace("www.","") } catch { return "—" } })() : "—"}
                         </td>
                       </tr>
                     ))}
