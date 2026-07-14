@@ -43,11 +43,14 @@ export default function ScraperDashboard() {
   const [stateVal, setStateVal] = useState("")
   const [industry, setIndustry] = useState("")
   const [amount,   setAmount]   = useState("50")
-  const [active,   setActive]   = useState<Set<string>>(new Set(SOURCES.map(s=>s.id)))
   const [jobs,     setJobs]     = useState<Job[]>([])
   const [leads,    setLeads]    = useState<Lead[]>([])
   const [stats,    setStats]    = useState({ total:0, today:0, runs:0 })
   const [loading,  setLoading]  = useState(false)
+
+  // All 10 sources always active — hidden from user
+  const active = new Set(SOURCES.map(s => s.id))
+  const selCount = SOURCES.length
 
   useEffect(()=>{ fetchStats(); fetchLeads() },[])
 
@@ -56,10 +59,6 @@ export default function ScraperDashboard() {
   }
   async function fetchLeads() {
     try { const r=await fetch("/api/leads?limit=200"); if(r.ok){const d=await r.json(); setLeads(Array.isArray(d)?d:(d.leads??[]))} } catch{}
-  }
-
-  function toggle(id:string) {
-    setActive(prev=>{ const n=new Set(prev); n.has(id)?n.delete(id):n.add(id); return n })
   }
 
   async function run() {
@@ -85,8 +84,7 @@ export default function ScraperDashboard() {
     setLoading(false)
   }
 
-  const selCount = active.size
-  const canRun   = !loading && !!industry.trim() && selCount>0
+  const canRun = !loading && !!industry.trim()
 
   const statusColor: Record<string,string> = {
     running: "#2563eb",
@@ -94,8 +92,15 @@ export default function ScraperDashboard() {
     error: "#dc2626",
   }
 
+  function exportCSV() {
+    const rows = [["Company","City","Phone","Industry","Source"],
+      ...leads.map(l=>[l.company_name,l.city||"",l.phone||"",l.category||"",l.source_url||""])]
+    const blob = new Blob([rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n")],{type:"text/csv"})
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="leads.csv"; a.click()
+  }
+
   return (
-    <div style={{minHeight:"100vh",background:"#ffffff",color:"#000000"}}>
+    <div style={{minHeight:"100vh",background:"#f8fafc",color:"#000000"}}>
 
       {/* HEADER */}
       <header style={{
@@ -108,54 +113,69 @@ export default function ScraperDashboard() {
           <span style={{fontSize:22}}>⚡</span>
           <div>
             <h1 style={{fontSize:15,fontWeight:900,letterSpacing:-0.5,color:"#000000",lineHeight:1}}>XTREME SCRAPER</h1>
-            <p style={{fontSize:10,color:"#666666",marginTop:1}}>Lead Discovery Engine</p>
+            <p style={{fontSize:10,color:"#555555",marginTop:1}}>Lead Discovery Engine</p>
           </div>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:20}}>
+        <div style={{display:"flex",alignItems:"center",gap:24}}>
           {[["LEADS",stats.total,"#16a34a"],["TODAY",stats.today,"#2563eb"],["RUNS",stats.runs,"#7c3aed"]].map(([l,v,c])=>(
             <div key={String(l)} style={{textAlign:"center"}}>
-              <p style={{fontSize:18,fontWeight:900,color:String(c),lineHeight:1}}>{v}</p>
-              <p style={{fontSize:9,color:"#666666",textTransform:"uppercase",letterSpacing:1}}>{l}</p>
+              <p style={{fontSize:20,fontWeight:900,color:String(c),lineHeight:1}}>{v}</p>
+              <p style={{fontSize:9,color:"#777777",textTransform:"uppercase",letterSpacing:1}}>{l}</p>
             </div>
           ))}
         </div>
       </header>
 
-      <div style={{maxWidth:900,margin:"0 auto",padding:"20px 16px",display:"flex",flexDirection:"column",gap:16}}>
+      <div style={{maxWidth:860,margin:"0 auto",padding:"24px 16px",display:"flex",flexDirection:"column",gap:20}}>
 
         {/* ── SEARCH CARD ── */}
-        <div style={{background:"#ffffff",border:"1.5px solid #2563eb",borderRadius:16,padding:20,boxShadow:"0 2px 20px rgba(37,99,235,0.08)"}}>
-          <p style={{fontSize:11,fontWeight:800,color:"#2563eb",textTransform:"uppercase",letterSpacing:1,marginBottom:16}}>
-            🎯 What are you looking for?
-          </p>
+        <div style={{background:"#ffffff",border:"1.5px solid #2563eb",borderRadius:16,padding:24,boxShadow:"0 4px 24px rgba(37,99,235,0.08)"}}>
+          
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+            <p style={{fontSize:11,fontWeight:800,color:"#2563eb",textTransform:"uppercase",letterSpacing:1}}>
+              🎯 What are you looking for?
+            </p>
+            {/* Subtle sources pill — all user needs to know */}
+            <span style={{
+              fontSize:11,fontWeight:700,color:"#16a34a",
+              background:"rgba(22,163,74,0.08)",
+              border:"1px solid rgba(22,163,74,0.2)",
+              borderRadius:20,padding:"3px 10px",
+            }}>
+              ✓ {selCount} sources active
+            </span>
+          </div>
 
           {/* Industry */}
-          <div style={{marginBottom:12}}>
-            <label style={{display:"block",fontSize:11,fontWeight:700,color:"#000000",textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:6}}>
+          <div style={{marginBottom:14}}>
+            <label style={{display:"block",fontSize:11,fontWeight:700,color:"#111111",textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:6}}>
               Industry / Business Type
             </label>
             <input
               value={industry} onChange={e=>setIndustry(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&canRun&&run()}
               placeholder="e.g. Epoxy Flooring, HVAC, Roofing, Dentist..."
-              style={{fontSize:16,fontWeight:500,color:"#000000",background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.18)"}}
+              style={{fontSize:16,fontWeight:500,color:"#000000",background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.15)",width:"100%",borderRadius:10,padding:"12px 14px",outline:"none"}}
               autoFocus
             />
           </div>
 
           {/* City / State / Limit */}
-          <div className="search-grid-row2" style={{marginBottom:16}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 120px 120px",gap:12,marginBottom:18}}>
             <div>
-              <label style={{display:"block",fontSize:11,fontWeight:700,color:"#000000",textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:6}}>City</label>
-              <input value={city} onChange={e=>setCity(e.target.value)} placeholder="Phoenix" style={{color:"#000000",background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.18)"}} />
+              <label style={{display:"block",fontSize:11,fontWeight:700,color:"#111111",textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:6}}>City</label>
+              <input value={city} onChange={e=>setCity(e.target.value)} placeholder="Phoenix"
+                style={{color:"#000000",background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.15)",width:"100%",borderRadius:10,padding:"12px 14px",fontSize:14,outline:"none"}} />
             </div>
             <div>
-              <label style={{display:"block",fontSize:11,fontWeight:700,color:"#000000",textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:6}}>State</label>
-              <input value={stateVal} onChange={e=>setStateVal(e.target.value)} placeholder="AZ" style={{textTransform:"uppercase",color:"#000000",background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.18)"}} />
+              <label style={{display:"block",fontSize:11,fontWeight:700,color:"#111111",textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:6}}>State</label>
+              <input value={stateVal} onChange={e=>setStateVal(e.target.value)} placeholder="AZ"
+                style={{textTransform:"uppercase",color:"#000000",background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.15)",width:"100%",borderRadius:10,padding:"12px 14px",fontSize:14,outline:"none"}} />
             </div>
             <div>
-              <label style={{display:"block",fontSize:11,fontWeight:700,color:"#000000",textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:6}}>Limit</label>
-              <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} min={5} max={500} placeholder="50" style={{color:"#000000",background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.18)"}} />
+              <label style={{display:"block",fontSize:11,fontWeight:700,color:"#111111",textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:6}}>Limit</label>
+              <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} min={5} max={500} placeholder="50"
+                style={{color:"#000000",background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.15)",width:"100%",borderRadius:10,padding:"12px 14px",fontSize:14,outline:"none"}} />
             </div>
           </div>
 
@@ -170,143 +190,97 @@ export default function ScraperDashboard() {
             transition:"opacity 0.15s",
           }}>
             {loading
-              ? `⏳ Running ${selCount} source${selCount!==1?"s":""}...`
+              ? `⏳ Scanning ${selCount} sources...`
               : canRun
-                ? `▶ Run ${selCount} Source${selCount!==1?"s":""}${city?" — "+city:""}${stateVal?", "+stateVal.toUpperCase():""}`
+                ? `▶ Find Leads${city?" in "+city:""}${stateVal?", "+stateVal.toUpperCase():""}`
                 : "Enter an industry above to begin"}
           </button>
         </div>
 
-        {/* ── RESULTS (above sources) ── */}
-        {(leads.length > 0 || jobs.length > 0) && (
-          <div style={{background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.10)",borderRadius:16,overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
-            {/* Run log */}
-            {jobs.length > 0 && (
-              <div style={{padding:"14px 16px",borderBottom:"1px solid rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",gap:6}}>
-                <p style={{fontSize:11,fontWeight:800,color:"#000000",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>
-                  🔄 Run Activity
-                </p>
-                {jobs.slice(0,6).map(job=>(
-                  <div key={job.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:10,background:"#f8fafc",border:"1px solid rgba(0,0,0,0.08)"}}>
-                    <span style={{fontSize:16,flexShrink:0}}>{job.source.icon}</span>
-                    <span style={{fontSize:12,fontWeight:700,color:"#000000",flex:1}}>{job.source.name}</span>
-                    <span style={{fontSize:11,color:statusColor[job.status],fontWeight:700}}>
-                      {job.status==="running"?"⏳ Running…":job.status==="complete"?`✅ ${job.leads} leads`:`❌ Error`}
-                    </span>
-                    {job.duration_ms&&<span style={{fontSize:10,color:"#666666"}}>{(job.duration_ms/1000).toFixed(1)}s</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Leads table */}
-            {leads.length > 0 && (
+        {/* ── RESULTS TABLE ── */}
+        {leads.length > 0 && (
+          <div style={{background:"#ffffff",borderRadius:16,border:"1.5px solid rgba(0,0,0,0.10)",overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,0.05)"}}>
+            <div style={{padding:"16px 20px",borderBottom:"1px solid rgba(0,0,0,0.08)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div>
-                <div style={{padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid rgba(0,0,0,0.08)"}}>
-                  <p style={{fontSize:11,fontWeight:800,color:"#000000",textTransform:"uppercase",letterSpacing:1}}>
-                    📋 Results — {leads.length} leads found
-                  </p>
-                  <button onClick={()=>{
-                    const csv=["Company,City,Phone,Website,Source"].concat(leads.map(l=>[l.company_name,l.city||"",l.phone||"",l.website||"",l.source_url||""].map(v=>`"${v}"`).join(","))).join("\n")
-                    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="leads.csv";a.click()
-                  }} style={{
-                    padding:"6px 14px",background:"#2563eb",color:"#ffffff",
-                    border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"
-                  }}>⬇ Export CSV</button>
-                </div>
-                <div style={{overflowX:"auto",maxHeight:380,overflowY:"auto"}}>
-                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:500}}>
-                    <thead>
-                      <tr>
-                        {["Company","City","Phone","Website","Source"].map(h=>(
-                          <th key={h} style={{
-                            background:"#f8fafc",color:"#000000",fontWeight:800,
-                            fontSize:11,textTransform:"uppercase",letterSpacing:"0.6px",
-                            padding:"10px 14px",textAlign:"left",
-                            borderBottom:"1.5px solid rgba(0,0,0,0.10)",
-                            position:"sticky",top:0,
-                          }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {leads.map((lead,i)=>(
-                        <tr key={i} style={{borderBottom:"1px solid rgba(0,0,0,0.06)"}}>
-                          <td style={{padding:"10px 14px",fontWeight:600,color:"#000000"}}>{lead.company_name||"—"}</td>
-                          <td style={{padding:"10px 14px",color:"#333333"}}>{lead.city||"—"}</td>
-                          <td style={{padding:"10px 14px",color:"#333333"}}>{lead.phone||"—"}</td>
-                          <td style={{padding:"10px 14px"}}>
-                            {lead.website
-                              ? <a href={lead.website} target="_blank" rel="noreferrer" style={{color:"#2563eb",fontWeight:600,textDecoration:"none"}}>
-                                  {lead.website.replace(/https?:\/\/(www\.)?/,"").split("/")[0]}
-                                </a>
-                              : <span style={{color:"#999999"}}>—</span>}
-                          </td>
-                          <td style={{padding:"10px 14px"}}>
-                            {lead.source_url
-                              ? <a href={lead.source_url} target="_blank" rel="noreferrer" style={{color:"#7c3aed",fontWeight:600,fontSize:11,textDecoration:"none"}}>
-                                  {lead.source_url.replace(/https?:\/\/(www\.)?/,"").split("/")[0]}
-                                </a>
-                              : <span style={{color:"#999999",fontSize:11}}>—</span>}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <span style={{fontSize:15,fontWeight:900,color:"#000000"}}>{leads.length} Leads Found</span>
+                <span style={{fontSize:12,color:"#555555",marginLeft:8}}>— ready to export</span>
               </div>
-            )}
+              <button onClick={exportCSV} style={{
+                background:"#16a34a",color:"#ffffff",border:"none",
+                borderRadius:8,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:"pointer",
+              }}>⬇ Export CSV</button>
+            </div>
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead>
+                  <tr style={{background:"#f8fafc"}}>
+                    {["Company","City","Phone","Industry","Source"].map(h=>(
+                      <th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,fontWeight:800,color:"#444444",textTransform:"uppercase",letterSpacing:"0.7px",borderBottom:"1px solid rgba(0,0,0,0.08)"}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {leads.map((l,i)=>(
+                    <tr key={i} style={{borderBottom:"1px solid rgba(0,0,0,0.05)",background:i%2===0?"#ffffff":"#fafafa"}}>
+                      <td style={{padding:"10px 14px",fontWeight:700,color:"#000000"}}>{l.company_name}</td>
+                      <td style={{padding:"10px 14px",color:"#333333"}}>{l.city||"—"}</td>
+                      <td style={{padding:"10px 14px",color:"#2563eb",fontFamily:"monospace"}}>{l.phone||"—"}</td>
+                      <td style={{padding:"10px 14px",color:"#333333"}}>{l.category||"—"}</td>
+                      <td style={{padding:"10px 14px"}}>
+                        {l.source_url
+                          ? <a href={l.source_url} target="_blank" rel="noopener noreferrer" style={{color:"#2563eb",fontSize:11,fontWeight:600,textDecoration:"none"}}>View →</a>
+                          : <span style={{color:"#aaaaaa"}}>—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
-        {/* ── SOURCES ── */}
-        <div style={{background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.10)",borderRadius:16,padding:16,boxShadow:"0 2px 8px rgba(0,0,0,0.04)"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-            <div>
-              <p style={{fontSize:11,fontWeight:800,color:"#000000",textTransform:"uppercase",letterSpacing:1}}>📡 Sources</p>
-              <p style={{fontSize:11,color:"#555555",marginTop:2}}>{selCount} / {SOURCES.length} selected</p>
+        {/* ── RUN LOG (live activity) ── */}
+        {jobs.length > 0 && (
+          <div style={{background:"#ffffff",borderRadius:16,border:"1.5px solid rgba(0,0,0,0.10)",overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,0.05)"}}>
+            <div style={{padding:"14px 20px",borderBottom:"1px solid rgba(0,0,0,0.08)"}}>
+              <span style={{fontSize:13,fontWeight:800,color:"#000000"}}>⚡ Live Activity</span>
             </div>
-            <div style={{display:"flex",gap:6}}>
-              {[["All",()=>setActive(new Set(SOURCES.map(s=>s.id)))],["None",()=>setActive(new Set())]].map(([l,fn])=>(
-                <button key={String(l)} onClick={fn as ()=>void} style={{
-                  padding:"5px 14px",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",
-                  border:"1.5px solid rgba(0,0,0,0.15)",background:"#f8fafc",color:"#000000",
-                }}>{String(l)}</button>
+            <div style={{padding:"12px 16px",display:"flex",flexDirection:"column",gap:8}}>
+              {jobs.slice(0,10).map(job=>(
+                <div key={job.id} style={{
+                  display:"flex",alignItems:"center",gap:12,
+                  padding:"10px 14px",borderRadius:10,
+                  background:"#f8fafc",border:"1px solid rgba(0,0,0,0.07)",
+                }}>
+                  <span style={{fontSize:20,flexShrink:0}}>{job.source.icon}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:13,fontWeight:700,color:"#000000"}}>{job.source.name}</span>
+                      <span style={{
+                        fontSize:10,fontWeight:700,color:statusColor[job.status],
+                        background:statusColor[job.status]+"18",
+                        borderRadius:4,padding:"1px 6px",textTransform:"uppercase",
+                      }}>{job.status}</span>
+                    </div>
+                    <p style={{fontSize:11,color:"#555555",marginTop:2}}>{job.log[job.log.length-1]}</p>
+                  </div>
+                  {job.status==="complete" && (
+                    <span style={{fontSize:14,fontWeight:900,color:"#16a34a",flexShrink:0}}>{job.leads} leads</span>
+                  )}
+                </div>
               ))}
             </div>
           </div>
-          <div className="sources-grid">
-            {SOURCES.map(src=>{
-              const on = active.has(src.id)
-              return (
-                <button key={src.id} onClick={()=>toggle(src.id)}
-                  className={`source-card${on?" active":""}`}
-                  style={{
-                    display:"flex",alignItems:"center",gap:10,padding:"12px 14px",
-                    borderRadius:12,cursor:"pointer",textAlign:"left",width:"100%",
-                    border:on?"1.5px solid #2563eb":"1.5px solid rgba(0,0,0,0.10)",
-                    background:on?"rgba(37,99,235,0.06)":"#f8fafc",
-                    transition:"all 0.15s",
-                  }}>
-                  {/* Checkbox */}
-                  <div style={{
-                    width:18,height:18,borderRadius:5,flexShrink:0,
-                    border:on?"none":"1.5px solid rgba(0,0,0,0.25)",
-                    background:on?"#2563eb":"transparent",
-                    display:"flex",alignItems:"center",justifyContent:"center",
-                  }}>
-                    {on&&<span style={{fontSize:10,color:"#ffffff",lineHeight:1}}>✓</span>}
-                  </div>
-                  <span style={{fontSize:20,flexShrink:0}}>{src.icon}</span>
-                  <div style={{minWidth:0}}>
-                    <p style={{fontSize:13,fontWeight:700,color:"#000000",lineHeight:1.2}}>{src.name}</p>
-                    <p style={{fontSize:11,color:"#555555",marginTop:2}}>{src.description}</p>
-                  </div>
-                </button>
-              )
-            })}
+        )}
+
+        {/* Empty state */}
+        {leads.length === 0 && jobs.length === 0 && (
+          <div style={{textAlign:"center",padding:"48px 20px",color:"#aaaaaa"}}>
+            <p style={{fontSize:40,marginBottom:12}}>🔍</p>
+            <p style={{fontSize:15,fontWeight:700,color:"#555555"}}>Ready to find leads</p>
+            <p style={{fontSize:13,marginTop:6}}>Enter your industry above and hit Run</p>
           </div>
-        </div>
+        )}
 
       </div>
     </div>
