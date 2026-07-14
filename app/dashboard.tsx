@@ -32,17 +32,11 @@ const SOURCES: Source[] = [
     build:(i,c,s)=>`https://www.thumbtack.com/k/${encodeURIComponent(i.toLowerCase().replace(/\s+/g,"-"))}/${encodeURIComponent(c.toLowerCase().replace(/\s+/g,"-"))}/` },
   { id:"manta", name:"Manta", icon:"🔍", description:"Small business profiles",
     build:(i,c,s)=>`https://www.manta.com/mb_46_${s.toUpperCase()}_${c.toLowerCase().replace(/\s+/g,"_")}/search?search_term=${encodeURIComponent(i)}` },
-  { id:"chamberofcommerce", name:"Chamber", icon:"🏛️", description:"Local chamber listings",
+  { id:"chamberofcommerce", name:"Chamber of Commerce", icon:"🏛️", description:"Local chamber listings",
     build:(i,c,s)=>`https://www.chamberofcommerce.com/search?q=${encodeURIComponent(i)}&location=${encodeURIComponent(c+", "+s)}` },
-  { id:"facebook", name:"Facebook", icon:"📘", description:"FB Pages — phone + reviews",
+  { id:"facebook", name:"Facebook Business", icon:"📘", description:"FB Pages — phone + reviews",
     build:(i,c,s)=>`https://www.facebook.com/search/pages/?q=${encodeURIComponent(i+" "+c+" "+s)}` },
 ]
-
-const STATUS: Record<string,string> = { running:"var(--blue)", complete:"var(--green)", error:"var(--red)" }
-
-function hostname(url: string) {
-  try { return new URL(url).hostname.replace("www.","") } catch { return "—" }
-}
 
 export default function ScraperDashboard() {
   const [city,     setCity]     = useState("")
@@ -54,21 +48,6 @@ export default function ScraperDashboard() {
   const [leads,    setLeads]    = useState<Lead[]>([])
   const [stats,    setStats]    = useState({ total:0, today:0, runs:0 })
   const [loading,  setLoading]  = useState(false)
-  const [dark,     setDark]     = useState(true)
-
-  useEffect(()=>{
-    const saved = localStorage.getItem("xscraper-theme")
-    const pref  = window.matchMedia("(prefers-color-scheme: dark)").matches
-    const isDark = saved ? saved==="dark" : pref
-    setDark(isDark)
-    document.documentElement.setAttribute("data-theme", isDark?"dark":"light")
-  },[])
-
-  function toggleTheme() {
-    const next = !dark; setDark(next)
-    document.documentElement.setAttribute("data-theme", next?"dark":"light")
-    localStorage.setItem("xscraper-theme", next?"dark":"light")
-  }
 
   useEffect(()=>{ fetchStats(); fetchLeads() },[])
 
@@ -109,112 +88,189 @@ export default function ScraperDashboard() {
   const selCount = active.size
   const canRun   = !loading && !!industry.trim() && selCount>0
 
-  const card: React.CSSProperties = {
-    background:"var(--bg2)", border:"1px solid var(--border)",
-    borderRadius:14, padding:16, boxShadow:"0 2px 16px var(--shadow)",
-  }
-  const lbl: React.CSSProperties = {
-    display:"block", fontSize:11, fontWeight:600,
-    color:"var(--text3)", textTransform:"uppercase" as const,
-    letterSpacing:"0.7px", marginBottom:6,
+  const statusColor: Record<string,string> = {
+    running: "#2563eb",
+    complete: "#16a34a",
+    error: "#dc2626",
   }
 
   return (
-    <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
+    <div style={{minHeight:"100vh",background:"#ffffff",color:"#000000"}}>
 
       {/* HEADER */}
       <header style={{
         position:"sticky",top:0,zIndex:100,
-        background:"var(--bg2)",borderBottom:"1px solid var(--border)",
-        padding:"0 16px",height:56,
+        background:"#ffffff",borderBottom:"1.5px solid rgba(0,0,0,0.10)",
+        padding:"0 20px",height:56,
         display:"flex",alignItems:"center",justifyContent:"space-between",
       }}>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
-          <span style={{fontSize:20}}>⚡</span>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:22}}>⚡</span>
           <div>
-            <h1 style={{fontSize:14,fontWeight:800,letterSpacing:-0.5,lineHeight:1}}>XTREME SCRAPER</h1>
-            <p style={{fontSize:9,color:"var(--text3)",marginTop:1}}>Lead Discovery Engine</p>
+            <h1 style={{fontSize:15,fontWeight:900,letterSpacing:-0.5,color:"#000000",lineHeight:1}}>XTREME SCRAPER</h1>
+            <p style={{fontSize:10,color:"#666666",marginTop:1}}>Lead Discovery Engine</p>
           </div>
         </div>
-        <div className="header-stats">
-          {[["Leads",stats.total,"var(--green)"],["Today",stats.today,"var(--blue)"],["Runs",stats.runs,"var(--purple)"]].map(([l,v,c])=>(
+        <div style={{display:"flex",alignItems:"center",gap:20}}>
+          {[["LEADS",stats.total,"#16a34a"],["TODAY",stats.today,"#2563eb"],["RUNS",stats.runs,"#7c3aed"]].map(([l,v,c])=>(
             <div key={String(l)} style={{textAlign:"center"}}>
-              <p style={{fontSize:16,fontWeight:800,color:String(c),lineHeight:1}}>{v}</p>
-              <p style={{fontSize:9,color:"var(--text3)",textTransform:"uppercase",letterSpacing:1}}>{l}</p>
+              <p style={{fontSize:18,fontWeight:900,color:String(c),lineHeight:1}}>{v}</p>
+              <p style={{fontSize:9,color:"#666666",textTransform:"uppercase",letterSpacing:1}}>{l}</p>
             </div>
           ))}
-          <button onClick={toggleTheme} style={{
-            background:"var(--bg3)",border:"1px solid var(--border)",
-            borderRadius:20,padding:"5px 10px",fontSize:14,
-            color:"var(--text2)",cursor:"pointer",flexShrink:0,
-          }}>{dark?"☀️":"🌙"}</button>
         </div>
       </header>
 
-      <div style={{maxWidth:900,margin:"0 auto",padding:"16px",display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{maxWidth:900,margin:"0 auto",padding:"20px 16px",display:"flex",flexDirection:"column",gap:16}}>
 
-        {/* SEARCH CARD */}
-        <div style={{...card,border:"1px solid var(--accent)",boxShadow:"0 0 0 1px var(--card-glow),0 4px 24px var(--shadow)"}}>
-          <p style={{fontSize:11,fontWeight:700,color:"var(--accent)",textTransform:"uppercase",letterSpacing:1,marginBottom:14}}>
+        {/* ── SEARCH CARD ── */}
+        <div style={{background:"#ffffff",border:"1.5px solid #2563eb",borderRadius:16,padding:20,boxShadow:"0 2px 20px rgba(37,99,235,0.08)"}}>
+          <p style={{fontSize:11,fontWeight:800,color:"#2563eb",textTransform:"uppercase",letterSpacing:1,marginBottom:16}}>
             🎯 What are you looking for?
           </p>
-          {/* Industry — full width */}
-          <div style={{marginBottom:10}}>
-            <label style={lbl}>Industry / Business Type</label>
-            <input value={industry} onChange={e=>setIndustry(e.target.value)}
+
+          {/* Industry */}
+          <div style={{marginBottom:12}}>
+            <label style={{display:"block",fontSize:11,fontWeight:700,color:"#000000",textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:6}}>
+              Industry / Business Type
+            </label>
+            <input
+              value={industry} onChange={e=>setIndustry(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&canRun&&run()}
               placeholder="e.g. Epoxy Flooring, HVAC, Roofing, Dentist..."
-              style={{fontSize:16,fontWeight:500}}
+              style={{fontSize:16,fontWeight:500,color:"#000000",background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.18)"}}
               autoFocus
             />
           </div>
-          {/* City / State / Amount — 3 col on mobile too (short labels) */}
-          <div className="search-grid-row2" style={{marginBottom:14}}>
+
+          {/* City / State / Limit */}
+          <div className="search-grid-row2" style={{marginBottom:16}}>
             <div>
-              <label style={lbl}>City</label>
-              <input value={city} onChange={e=>setCity(e.target.value)} placeholder="Phoenix" />
+              <label style={{display:"block",fontSize:11,fontWeight:700,color:"#000000",textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:6}}>City</label>
+              <input value={city} onChange={e=>setCity(e.target.value)} placeholder="Phoenix" style={{color:"#000000",background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.18)"}} />
             </div>
             <div>
-              <label style={lbl}>State</label>
-              <input value={stateVal} onChange={e=>setStateVal(e.target.value)} placeholder="AZ" style={{textTransform:"uppercase"}} />
+              <label style={{display:"block",fontSize:11,fontWeight:700,color:"#000000",textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:6}}>State</label>
+              <input value={stateVal} onChange={e=>setStateVal(e.target.value)} placeholder="AZ" style={{textTransform:"uppercase",color:"#000000",background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.18)"}} />
             </div>
             <div>
-              <label style={lbl}>Limit</label>
-              <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} min={5} max={500} placeholder="50" />
+              <label style={{display:"block",fontSize:11,fontWeight:700,color:"#000000",textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:6}}>Limit</label>
+              <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} min={5} max={500} placeholder="50" style={{color:"#000000",background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.18)"}} />
             </div>
           </div>
-          {/* BIG RUN BUTTON */}
+
+          {/* RUN BUTTON */}
           <button onClick={run} disabled={!canRun} style={{
-            width:"100%", padding:"15px 0",
-            background:canRun?"linear-gradient(135deg,var(--accent),var(--accent2))":"var(--bg3)",
-            color:canRun?"white":"var(--text3)",
-            border:"none",borderRadius:12,fontSize:15,fontWeight:800,
-            cursor:canRun?"pointer":"not-allowed",letterSpacing:0.3,
-            boxShadow:canRun?"0 4px 20px rgba(37,99,235,0.35)":"none",
-            transition:"all 0.2s",lineHeight:1.4,
+            width:"100%",padding:"16px 0",
+            background:canRun?"linear-gradient(135deg,#2563eb,#7c3aed)":"#f1f5f9",
+            color:canRun?"#ffffff":"#999999",
+            border:"none",borderRadius:12,fontSize:15,fontWeight:900,
+            cursor:canRun?"pointer":"not-allowed",
+            letterSpacing:0.5,
+            transition:"opacity 0.15s",
           }}>
             {loading
-              ? `⏳ Scraping ${selCount} source${selCount!==1?"s":""}...`
+              ? `⏳ Running ${selCount} source${selCount!==1?"s":""}...`
               : canRun
-                ? `⚡ Search ${selCount} Source${selCount!==1?"s":""}\n"${industry}"${city?` in ${city}`:""}${stateVal?`, ${stateVal.toUpperCase()}`:""}`
-                : "Enter an industry above to begin"
-            }
+                ? `▶ Run ${selCount} Source${selCount!==1?"s":""}${city?" — "+city:""}${stateVal?", "+stateVal.toUpperCase():""}`
+                : "Enter an industry above to begin"}
           </button>
         </div>
 
-        {/* SOURCES */}
-        <div style={card}>
+        {/* ── RESULTS (above sources) ── */}
+        {(leads.length > 0 || jobs.length > 0) && (
+          <div style={{background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.10)",borderRadius:16,overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
+            {/* Run log */}
+            {jobs.length > 0 && (
+              <div style={{padding:"14px 16px",borderBottom:"1px solid rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",gap:6}}>
+                <p style={{fontSize:11,fontWeight:800,color:"#000000",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>
+                  🔄 Run Activity
+                </p>
+                {jobs.slice(0,6).map(job=>(
+                  <div key={job.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:10,background:"#f8fafc",border:"1px solid rgba(0,0,0,0.08)"}}>
+                    <span style={{fontSize:16,flexShrink:0}}>{job.source.icon}</span>
+                    <span style={{fontSize:12,fontWeight:700,color:"#000000",flex:1}}>{job.source.name}</span>
+                    <span style={{fontSize:11,color:statusColor[job.status],fontWeight:700}}>
+                      {job.status==="running"?"⏳ Running…":job.status==="complete"?`✅ ${job.leads} leads`:`❌ Error`}
+                    </span>
+                    {job.duration_ms&&<span style={{fontSize:10,color:"#666666"}}>{(job.duration_ms/1000).toFixed(1)}s</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Leads table */}
+            {leads.length > 0 && (
+              <div>
+                <div style={{padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid rgba(0,0,0,0.08)"}}>
+                  <p style={{fontSize:11,fontWeight:800,color:"#000000",textTransform:"uppercase",letterSpacing:1}}>
+                    📋 Results — {leads.length} leads found
+                  </p>
+                  <button onClick={()=>{
+                    const csv=["Company,City,Phone,Website,Source"].concat(leads.map(l=>[l.company_name,l.city||"",l.phone||"",l.website||"",l.source_url||""].map(v=>`"${v}"`).join(","))).join("\n")
+                    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="leads.csv";a.click()
+                  }} style={{
+                    padding:"6px 14px",background:"#2563eb",color:"#ffffff",
+                    border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"
+                  }}>⬇ Export CSV</button>
+                </div>
+                <div style={{overflowX:"auto",maxHeight:380,overflowY:"auto"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:500}}>
+                    <thead>
+                      <tr>
+                        {["Company","City","Phone","Website","Source"].map(h=>(
+                          <th key={h} style={{
+                            background:"#f8fafc",color:"#000000",fontWeight:800,
+                            fontSize:11,textTransform:"uppercase",letterSpacing:"0.6px",
+                            padding:"10px 14px",textAlign:"left",
+                            borderBottom:"1.5px solid rgba(0,0,0,0.10)",
+                            position:"sticky",top:0,
+                          }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leads.map((lead,i)=>(
+                        <tr key={i} style={{borderBottom:"1px solid rgba(0,0,0,0.06)"}}>
+                          <td style={{padding:"10px 14px",fontWeight:600,color:"#000000"}}>{lead.company_name||"—"}</td>
+                          <td style={{padding:"10px 14px",color:"#333333"}}>{lead.city||"—"}</td>
+                          <td style={{padding:"10px 14px",color:"#333333"}}>{lead.phone||"—"}</td>
+                          <td style={{padding:"10px 14px"}}>
+                            {lead.website
+                              ? <a href={lead.website} target="_blank" rel="noreferrer" style={{color:"#2563eb",fontWeight:600,textDecoration:"none"}}>
+                                  {lead.website.replace(/https?:\/\/(www\.)?/,"").split("/")[0]}
+                                </a>
+                              : <span style={{color:"#999999"}}>—</span>}
+                          </td>
+                          <td style={{padding:"10px 14px"}}>
+                            {lead.source_url
+                              ? <a href={lead.source_url} target="_blank" rel="noreferrer" style={{color:"#7c3aed",fontWeight:600,fontSize:11,textDecoration:"none"}}>
+                                  {lead.source_url.replace(/https?:\/\/(www\.)?/,"").split("/")[0]}
+                                </a>
+                              : <span style={{color:"#999999",fontSize:11}}>—</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── SOURCES ── */}
+        <div style={{background:"#ffffff",border:"1.5px solid rgba(0,0,0,0.10)",borderRadius:16,padding:16,boxShadow:"0 2px 8px rgba(0,0,0,0.04)"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
             <div>
-              <p style={{fontSize:11,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:1}}>📡 Sources</p>
-              <p style={{fontSize:11,color:"var(--text3)",marginTop:2}}>{selCount} / {SOURCES.length} selected</p>
+              <p style={{fontSize:11,fontWeight:800,color:"#000000",textTransform:"uppercase",letterSpacing:1}}>📡 Sources</p>
+              <p style={{fontSize:11,color:"#555555",marginTop:2}}>{selCount} / {SOURCES.length} selected</p>
             </div>
             <div style={{display:"flex",gap:6}}>
               {[["All",()=>setActive(new Set(SOURCES.map(s=>s.id)))],["None",()=>setActive(new Set())]].map(([l,fn])=>(
                 <button key={String(l)} onClick={fn as ()=>void} style={{
-                  fontSize:11,padding:"4px 10px",borderRadius:6,
-                  border:"1px solid var(--border)",background:"var(--bg3)",
-                  color:"var(--text2)",cursor:"pointer",
+                  padding:"5px 14px",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",
+                  border:"1.5px solid rgba(0,0,0,0.15)",background:"#f8fafc",color:"#000000",
                 }}>{String(l)}</button>
               ))}
             </div>
@@ -223,25 +279,28 @@ export default function ScraperDashboard() {
             {SOURCES.map(src=>{
               const on = active.has(src.id)
               return (
-                <button key={src.id} onClick={()=>toggle(src.id)} style={{
-                  display:"flex",alignItems:"center",gap:12,
-                  padding:"14px 12px",borderRadius:10,cursor:"pointer",textAlign:"left",width:"100%",
-                  border:on?"1px solid rgba(37,99,235,0.5)":"1px solid var(--border)",
-                  background:on?"rgba(37,99,235,0.1)":"var(--bg3)",
-                  transition:"all 0.15s",minWidth:0,
-                }}>
+                <button key={src.id} onClick={()=>toggle(src.id)}
+                  className={`source-card${on?" active":""}`}
+                  style={{
+                    display:"flex",alignItems:"center",gap:10,padding:"12px 14px",
+                    borderRadius:12,cursor:"pointer",textAlign:"left",width:"100%",
+                    border:on?"1.5px solid #2563eb":"1.5px solid rgba(0,0,0,0.10)",
+                    background:on?"rgba(37,99,235,0.06)":"#f8fafc",
+                    transition:"all 0.15s",
+                  }}>
+                  {/* Checkbox */}
                   <div style={{
-                    width:16,height:16,borderRadius:4,flexShrink:0,
-                    border:on?"none":"1.5px solid var(--text3)",
-                    background:on?"var(--accent)":"transparent",
+                    width:18,height:18,borderRadius:5,flexShrink:0,
+                    border:on?"none":"1.5px solid rgba(0,0,0,0.25)",
+                    background:on?"#2563eb":"transparent",
                     display:"flex",alignItems:"center",justifyContent:"center",
                   }}>
-                    {on&&<span style={{fontSize:9,color:"white",lineHeight:1}}>✓</span>}
+                    {on&&<span style={{fontSize:10,color:"#ffffff",lineHeight:1}}>✓</span>}
                   </div>
-                  <span style={{fontSize:22,flexShrink:0}}>{src.icon}</span>
-                  <div style={{minWidth:0,flex:1}}>
-                    <p style={{fontSize:13,fontWeight:700,color:"var(--text)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{src.name}</p>
-                    <p style={{fontSize:11,color:"var(--text)",opacity:0.7,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{src.description}</p>
+                  <span style={{fontSize:20,flexShrink:0}}>{src.icon}</span>
+                  <div style={{minWidth:0}}>
+                    <p style={{fontSize:13,fontWeight:700,color:"#000000",lineHeight:1.2}}>{src.name}</p>
+                    <p style={{fontSize:11,color:"#555555",marginTop:2}}>{src.description}</p>
                   </div>
                 </button>
               )
@@ -249,80 +308,6 @@ export default function ScraperDashboard() {
           </div>
         </div>
 
-        {/* JOB QUEUE */}
-        {jobs.length>0&&(
-          <div style={card}>
-            <p style={{fontSize:11,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>🔄 Job Queue</p>
-            <div style={{display:"flex",flexDirection:"column",gap:6}}>
-              {jobs.slice(0,8).map(job=>(
-                <div key={job.id} style={{
-                  display:"flex",alignItems:"center",gap:10,
-                  background:"var(--bg3)",border:"1px solid var(--border2)",
-                  borderRadius:8,padding:"10px 12px",
-                }}>
-                  <span style={{fontSize:18,flexShrink:0}}>{job.source.icon}</span>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
-                      <span style={{fontSize:12,fontWeight:600}}>{job.source.name}</span>
-                      <span style={{fontSize:10,fontWeight:700,color:STATUS[job.status],textTransform:"uppercase"}}>{job.status}</span>
-                    </div>
-                    <p style={{fontSize:10,color:"var(--text3)",fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{job.log[job.log.length-1]}</p>
-                  </div>
-                  <div style={{textAlign:"right",flexShrink:0}}>
-                    <p style={{fontSize:16,fontWeight:800,color:"var(--green)"}}>{job.leads}</p>
-                    <p style={{fontSize:9,color:"var(--text3)"}}>leads</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* LEADS TABLE — scrollable on mobile */}
-        <div style={{...card,flex:1}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-            <p style={{fontSize:11,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:1}}>
-              📋 Leads ({leads.length})
-            </p>
-            <button onClick={fetchLeads} style={{fontSize:11,color:"var(--blue)",background:"none",border:"none",cursor:"pointer",padding:"4px 8px"}}>
-              ↻ Refresh
-            </button>
-          </div>
-          {leads.length===0?(
-            <div style={{textAlign:"center",padding:"40px 0"}}>
-              <p style={{fontSize:32,marginBottom:10}}>🔍</p>
-              <p style={{fontSize:14,fontWeight:600,color:"var(--text2)",marginBottom:4}}>No leads yet</p>
-              <p style={{fontSize:12,color:"var(--text3)"}}>Type what you want above and hit Search</p>
-            </div>
-          ):(
-            <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:500}}>
-                <thead>
-                  <tr style={{borderBottom:"1px solid var(--border)"}}>
-                    {["Company","City","Phone","Industry","Source"].map(h=>(
-                      <th key={h} style={{textAlign:"left",paddingBottom:8,paddingRight:12,fontSize:10,fontWeight:600,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.5px",whiteSpace:"nowrap"}}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {leads.map((lead,i)=>(
-                    <tr key={i} style={{borderBottom:"1px solid var(--border2)"}}>
-                      <td style={{padding:"8px 12px 8px 0",fontWeight:600,whiteSpace:"nowrap"}}>{lead.company_name}</td>
-                      <td style={{padding:"8px 12px 8px 0",color:"var(--text2)",whiteSpace:"nowrap"}}>{lead.city||"—"}{lead.state?`, ${lead.state}`:""}</td>
-                      <td style={{padding:"8px 12px 8px 0",color:"var(--text2)",whiteSpace:"nowrap"}}>{lead.phone||"—"}</td>
-                      <td style={{padding:"8px 12px 8px 0",whiteSpace:"nowrap"}}>
-                        <span style={{background:"var(--tag-bg)",color:"var(--tag-text)",padding:"2px 7px",borderRadius:4,fontSize:10,fontWeight:600}}>
-                          {lead.category||"—"}
-                        </span>
-                      </td>
-                      <td style={{padding:"8px 0",color:"var(--text3)",fontSize:10,whiteSpace:"nowrap"}}>{hostname(lead.source_url||"")}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   )
