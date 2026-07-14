@@ -224,8 +224,8 @@ export default function ScraperDashboard() {
               const on = active.has(src.id)
               return (
                 <button key={src.id} onClick={()=>toggle(src.id)} style={{
-                  display:"flex",alignItems:"center",gap:8,
-                  padding:"10px 10px",borderRadius:10,cursor:"pointer",textAlign:"left",
+                  display:"flex",alignItems:"center",gap:12,
+                  padding:"14px 12px",borderRadius:10,cursor:"pointer",textAlign:"left",width:"100%",
                   border:on?"1px solid rgba(37,99,235,0.5)":"1px solid var(--border)",
                   background:on?"rgba(37,99,235,0.1)":"var(--bg3)",
                   transition:"all 0.15s",minWidth:0,
@@ -238,10 +238,10 @@ export default function ScraperDashboard() {
                   }}>
                     {on&&<span style={{fontSize:9,color:"white",lineHeight:1}}>✓</span>}
                   </div>
-                  <span style={{fontSize:16,flexShrink:0}}>{src.icon}</span>
+                  <span style={{fontSize:22,flexShrink:0}}>{src.icon}</span>
                   <div style={{minWidth:0,flex:1}}>
-                    <p style={{fontSize:11,fontWeight:600,color:on?"var(--text)":"var(--text2)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{src.name}</p>
-                    <p style={{fontSize:9,color:"var(--text3)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{src.description}</p>
+                    <p style={{fontSize:13,fontWeight:700,color:"var(--text)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{src.name}</p>
+                    <p style={{fontSize:11,color:"var(--text)",opacity:0.7,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{src.description}</p>
                   </div>
                 </button>
               )
