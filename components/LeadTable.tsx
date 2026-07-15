@@ -130,9 +130,13 @@ export default function LeadTable({ leads, onToggleSave, savedIds = [] }: LeadTa
                         VIEW
                       </button>
                     </Link>
-                    <button className="p-1.5 text-gray-400 hover:text-black hover:bg-gray-100 rounded transition-all">
-                      <MoreVertical size={16} />
-                    </button>
+                    <a 
+                      href={`tel:${lead.phone}`}
+                      className="p-1.5 text-gray-400 hover:text-[#FFBE00] hover:bg-gray-100 rounded transition-all"
+                      title={`Call ${lead.phone}`}
+                    >
+                      <Phone size={14} />
+                    </a>
                   </div>
                 </td>
               </tr>
