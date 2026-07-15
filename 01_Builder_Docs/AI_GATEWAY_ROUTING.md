@@ -1,8 +1,16 @@
 # AI Gateway Routing Policy
 
-Status: **PROPOSED / RUNTIME UNPROVEN**.
+Status: **CURRENT AI-GENERATED LEAD PATH PRESENT; RUNTIME QUALITY UNPROVEN**.
 
-Permitted future tasks: classification, normalization, entity detection, claim extraction, confidence assistance and summarization. AI output must never be treated as verified source evidence by itself.
+## Current behavior
+
+`/api/scrape` may ask the configured model to list real companies from training knowledge when deterministic scraping returns too few leads. When those AI-produced records outnumber scraped records, the route may select them and persist them to the scraper lead output table.
+
+This path is high-risk because model-generated company names, phone numbers and websites are not source-verified evidence. Records produced by this path must be labeled `ai_generated`, retain model and prompt provenance, and remain quarantined until independently verified against an approved source. They must not be exported, contacted or scored as verified leads by default.
+
+## Permitted governed tasks
+
+Classification, normalization, entity detection, claim extraction, confidence assistance and summarization. AI output must never be treated as verified source evidence by itself.
 
 ## Routing rules
 
@@ -13,6 +21,7 @@ Permitted future tasks: classification, normalization, entity detection, claim e
 - Apply per-job and daily budgets with a hard stop.
 - Fallback only to approved providers; never silently widen providers or spend.
 - Redact secrets and unnecessary personal data before requests.
-- Quarantine fabricated, unsupported or low-confidence claims.
+- Quarantine fabricated, unsupported, AI-generated or low-confidence claims.
+- Release of AI-generated lead data requires independent source verification and operator-approved policy.
 
-No model call, AI Gateway configuration or key mutation occurred in this mission.
+No model call, AI Gateway configuration or key mutation occurred in this documentation mission.
