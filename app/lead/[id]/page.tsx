@@ -57,13 +57,13 @@ export default function LeadDetail({ params }: PageProps) {
   };
 
   const handleSaveNotes = () => {
-    alert('Internal private scrape notes saved successfully!');
+    showToast('✓ Notes saved');
   };
 
   const handleToggleSave = () => {
     const nextSaved = !isSaved;
     setIsSaved(nextSaved);
-    alert(nextSaved ? 'Saved to memory!' : 'Removed from memory!');
+    showToast(nextSaved ? '★ Saved to memory' : '✕ Removed from memory');
   };
 
   const handleDownloadProfile = () => {
