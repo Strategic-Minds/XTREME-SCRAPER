@@ -20,12 +20,15 @@ export default function Dashboard() {
   const handleToggleSave = (id: string) => {
     if (savedIds.includes(id)) {
       setSavedIds(savedIds.filter(item => item !== id));
+      alert(`Removed lead from memory!`);
     } else {
       setSavedIds([...savedIds, id]);
+      alert(`Saved lead to memory!`);
     }
   };
 
-  const handleSearchClick = () => {
+  const handleSearchClick = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     let result = mockLeads;
     if (searchQuery) {
       result = result.filter(l => l.name.toLowerCase().includes(searchQuery.toLowerCase()) || l.city.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -37,6 +40,17 @@ export default function Dashboard() {
       result = result.filter(l => l.source === sourceFilter);
     }
     setLeads(result);
+  };
+
+  const handleExportData = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(leads, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", "xtreme_scraper_export.json");
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    alert('Exported mock data as JSON!');
   };
 
   return (
@@ -68,15 +82,15 @@ export default function Dashboard() {
 
           {/* Search Panel (Black Background) */}
           <section className="bg-black text-white rounded-2xl p-8 border border-zinc-900 shadow-2xl relative overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(#F5A000_1px,transparent_1px)] [background-size:20px_20px] opacity-10" />
+            <div className="absolute inset-0 bg-[radial-gradient(#FFBE00_1px,transparent_1px)] [background-size:20px_20px] opacity-10" />
             
-            <div className="relative z-10 flex flex-col space-y-6">
+            <form onSubmit={handleSearchClick} className="relative z-10 flex flex-col space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <span className="text-[#F5A000] text-sm">⚡</span>
+                  <span className="text-[#FFBE00] text-sm">⚡</span>
                   <h2 className="text-lg font-black tracking-wider uppercase">START YOUR SEARCH</h2>
                 </div>
-                <button className="text-xs font-black text-[#F5A000] hover:underline uppercase tracking-widest">
+                <button type="button" onClick={() => alert('Advanced Filters Clicked')} className="text-xs font-black text-[#FFBE00] hover:underline uppercase tracking-widest">
                   Advanced Filters
                 </button>
               </div>
@@ -84,145 +98,106 @@ export default function Dashboard() {
               {/* Form Input Row */}
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col justify-center">
-                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">STATE</label>
-                  <select
-                    value={stateFilter}
-                    onChange={(e) => setStateFilter(e.target.value)}
-                    className="bg-transparent text-white font-extrabold text-sm focus:outline-none appearance-none cursor-pointer"
-                  >
-                    <option value="AZ" className="bg-black text-white">AZ — Arizona</option>
-                    <option value="CA" className="bg-black text-white">CA — California</option>
-                    <option value="TX" className="bg-black text-white">TX — Texas</option>
-                    <option value="FL" className="bg-black text-white">FL — Florida</option>
-                    <option value="NV" className="bg-black text-white">NV — Nevada</option>
-                    <option value="CO" className="bg-black text-white">CO — Colorado</option>
-                    <option value="GA" className="bg-black text-white">GA — Georgia</option>
-                    <option value="WA" className="bg-black text-white">WA — Washington</option>
-                    <option value="IL" className="bg-black text-white">IL — Illinois</option>
-                    <option value="NY" className="bg-black text-white">NY — New York</option>
-                  </select>
-                </div>
-
-                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col justify-center">
-                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">CITY</label>
-                  <input
-                    type="text"
-                    value={cityFilter}
-                    onChange={(e) => setCityFilter(e.target.value)}
-                    placeholder="e.g. Phoenix"
-                    className="bg-transparent text-white font-extrabold text-sm focus:outline-none placeholder:text-zinc-600"
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1.5">Search Query</label>
+                  <input 
+                    type="text" 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="e.g. Phoenix Flooring"
+                    className="bg-transparent text-white font-extrabold text-xs focus:outline-none placeholder-zinc-700"
                   />
                 </div>
 
                 <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col justify-center">
-                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">INDUSTRY</label>
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1.5">Category</label>
                   <select 
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="bg-transparent text-white font-extrabold text-sm focus:outline-none appearance-none cursor-pointer"
+                    className="bg-transparent text-white font-extrabold text-xs focus:outline-none cursor-pointer"
                   >
-                    <option value="All" className="bg-black text-white">All Flooring Industries</option>
-                    <option value="Flooring Contractor" className="bg-black text-white">Flooring Contractor</option>
-                    <option value="Epoxy Coating Specialist" className="bg-black text-white">Epoxy Coating Specialist</option>
-                    <option value="Concrete Polishing" className="bg-black text-white">Concrete Polishing</option>
-                    <option value="Hardwood Specialist" className="bg-black text-white">Hardwood Specialist</option>
+                    <option value="All" className="bg-zinc-950 text-white">All Categories</option>
+                    <option value="Flooring Contractor" className="bg-zinc-950 text-white">Flooring Contractor</option>
+                    <option value="Epoxy Coating Specialist" className="bg-zinc-950 text-white">Epoxy Specialist</option>
+                    <option value="Concrete Polishing" className="bg-zinc-950 text-white">Concrete Polishing</option>
                   </select>
                 </div>
 
                 <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col justify-center">
-                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">SOURCES</label>
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1.5">Source Node</label>
                   <select 
                     value={sourceFilter}
                     onChange={(e) => setSourceFilter(e.target.value)}
-                    className="bg-transparent text-white font-extrabold text-sm focus:outline-none appearance-none cursor-pointer"
+                    className="bg-transparent text-white font-extrabold text-xs focus:outline-none cursor-pointer"
                   >
-                    <option value="All" className="bg-black text-white">All Sources (Google/Yelp/YP)</option>
-                    <option value="Google" className="bg-black text-white">Google Maps</option>
-                    <option value="Yelp" className="bg-black text-white">Yelp</option>
-                    <option value="YellowPages" className="bg-black text-white">Yellow Pages</option>
+                    <option value="All" className="bg-zinc-950 text-white">All Sources (G, Yelp, YP)</option>
+                    <option value="Google" className="bg-zinc-950 text-white">Google Maps API</option>
+                    <option value="Yelp" className="bg-zinc-950 text-white">Yelp Scraper</option>
+                    <option value="YellowPages" className="bg-zinc-950 text-white">YellowPages API</option>
                   </select>
                 </div>
 
-                <button 
-                  onClick={handleSearchClick}
-                  className="bg-[#F5A000] hover:bg-amber-500 text-black font-black text-xs tracking-widest uppercase rounded-lg flex items-center justify-center space-x-2 transition-all shadow-lg"
-                >
-                  <Search size={16} className="stroke-[3]" />
-                  <span>SEARCH</span>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col justify-center">
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1.5">Target State</label>
+                  <select 
+                    value={stateFilter}
+                    onChange={(e) => setStateFilter(e.target.value)}
+                    className="bg-transparent text-white font-extrabold text-xs focus:outline-none cursor-pointer"
+                  >
+                    <option value="AZ" className="bg-zinc-950 text-white">Arizona (AZ)</option>
+                    <option value="CA" className="bg-zinc-950 text-white">California (CA)</option>
+                    <option value="TX" className="bg-zinc-950 text-white">Texas (TX)</option>
+                  </select>
+                </div>
+
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col justify-center">
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1.5">Target City</label>
+                  <input 
+                    type="text" 
+                    value={cityFilter}
+                    onChange={(e) => setCityFilter(e.target.value)}
+                    placeholder="e.g. Phoenix"
+                    className="bg-transparent text-white font-extrabold text-xs focus:outline-none placeholder-zinc-700"
+                  />
+                </div>
+              </div>
+
+              {/* Run button */}
+              <div className="flex justify-end pt-2">
+                <button type="submit" className="px-8 py-3.5 bg-[#FFBE00] hover:bg-amber-500 text-black font-black text-xs tracking-widest uppercase rounded shadow-lg transition-all">
+                  RUN SCRAPE NODE
                 </button>
               </div>
-
-              {/* Bottom Feature Badges */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-zinc-900 text-xs text-gray-400 font-bold">
-                <div className="flex items-center space-x-3">
-                  <span className="text-[#F5A000] text-lg">⚡</span>
-                  <div>
-                    <span className="block font-black text-white uppercase text-[10px] tracking-wider">FAST RESULTS</span>
-                    <span className="text-[11px] text-zinc-500">Scrapes executed in real-time.</span>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <span className="text-[#F5A000] text-lg">✓</span>
-                  <div>
-                    <span className="block font-black text-white uppercase text-[10px] tracking-wider">ACCURATE DATA</span>
-                    <span className="text-[11px] text-zinc-500">Every single detail is cross-verified.</span>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <span className="text-[#F5A000] text-lg">🏆</span>
-                  <div>
-                    <span className="block font-black text-white uppercase text-[10px] tracking-wider">BUILT FOR PROS</span>
-                    <span className="text-[11px] text-zinc-500">Designed for enterprise scaling.</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            </form>
           </section>
 
-          {/* Table Leads Section */}
-          <section className="space-y-6">
+          {/* Table Controls Panel */}
+          <div className="flex flex-col space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-100">
               <div className="flex items-center space-x-3">
-                <h2 className="text-xl font-black text-black uppercase tracking-tight">LIVE RESULTS</h2>
-                <span className="bg-[#F5A000]/15 text-[#F5A000] text-xs font-black px-3 py-1 rounded-full border border-[#F5A000]/20">
-                  {leads.length} RESULTS FOUND
+                <h3 className="text-xl font-black text-black uppercase tracking-tight">SCRAPE STREAM RESULTS</h3>
+                <span className="bg-[#FFBE00]/15 text-[#FFBE00] text-[10px] font-black px-2.5 py-1 rounded border border-[#FFBE00]/20 uppercase">
+                  {leads.length} Records
                 </span>
               </div>
 
-              {/* Table Filters */}
-              <div className="flex flex-wrap items-center gap-3">
-                <input 
-                  type="text" 
-                  placeholder="Filter by business name..." 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-[#F5A000] w-48"
-                />
-                <button className="flex items-center space-x-2 px-4 py-2 border border-gray-200 rounded-lg text-xs font-black text-gray-500 hover:text-black uppercase tracking-wider transition-all bg-white">
-                  <SlidersHorizontal size={12} />
-                  <span>Filters</span>
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={handleExportData} className="px-4 py-2 border border-gray-200 hover:border-black text-black font-black text-xs tracking-wider uppercase rounded transition-all bg-white flex items-center space-x-2">
+                  <span>Export JSON</span>
+                </button>
+                <button onClick={() => alert('Refreshed leads stream!')} className="px-4 py-2 border border-gray-200 hover:border-black text-black font-black text-xs tracking-wider uppercase rounded transition-all bg-white flex items-center space-x-2">
+                  <span>Sync Nodes</span>
+                </button>
+                <button onClick={() => alert('Bulk save success!')} className="px-5 py-2.5 bg-[#FFBE00] hover:bg-amber-500 text-black font-black text-xs tracking-widest uppercase rounded shadow-md transition-all flex items-center space-x-2">
+                  <Plus size={14} className="stroke-[3]" />
+                  <span>Bulk Save</span>
                 </button>
               </div>
             </div>
 
-            {/* Results Leads Table */}
+            {/* Lead Table Component */}
             <LeadTable leads={leads} onToggleSave={handleToggleSave} savedIds={savedIds} />
-
-            {/* Table Pagination */}
-            <div className="flex items-center justify-between pt-4">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Showing 1-{leads.length} of {leads.length} leads</span>
-              <div className="flex items-center space-x-1.5">
-                <button className="px-3 py-1.5 border border-gray-200 text-xs font-black rounded text-black bg-[#F5A000] border-[#F5A000]">1</button>
-                <button className="px-3 py-1.5 border border-gray-200 text-xs font-black rounded text-gray-500 hover:text-black bg-white transition-colors">2</button>
-                <button className="px-3 py-1.5 border border-gray-200 text-xs font-black rounded text-gray-500 hover:text-black bg-white transition-colors">3</button>
-                <span className="text-gray-400 text-xs px-1">...</span>
-                <button className="px-3 py-1.5 border border-gray-200 text-xs font-black rounded text-gray-500 hover:text-black bg-white transition-colors">16</button>
-                <button className="p-2 border border-gray-200 rounded text-gray-500 hover:text-black bg-white transition-colors">
-                  <ChevronRight size={14} className="stroke-[2.5]" />
-                </button>
-              </div>
-            </div>
-          </section>
+          </div>
         </div>
       </div>
     </div>
