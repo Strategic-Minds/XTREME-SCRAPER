@@ -5,17 +5,22 @@ import Link from 'next/link';
 import TopNav from '../../components/TopNav';
 
 export default function AuthPage() {
-  const [activeTab, setActiveTab] = React.useState<'Sign In' | 'Create Account'>('Create Account');
-  const [selectedPlan, setSelectedPlan] = React.useState<'Starter' | 'Pro' | 'Agency'>('Pro');
-  const [billingCycle, setBillingCycle] = React.useState<'monthly' | 'yearly'>('monthly');
+  const [activeTab, setActiveTab] = React.useState('Create Account');
+  const [selectedPlan, setSelectedPlan] = React.useState('Pro');
+  const [billingCycle, setBillingCycle] = React.useState('monthly');
 
   // Input states
   const [fullName, setFullName] = React.useState('Alex Davidson');
   const [email, setEmail] = React.useState('alex@epoxyvalley.com');
   const [password, setPassword] = React.useState('••••••••••••');
-  const [confirmPassword, setConfirmPassword] = React.useState('••••••••••••');
+  const [toast, setToast] = React.useState('');
 
-  const getPrice = (plan: 'Starter' | 'Pro' | 'Agency') => {
+  const showToast = (msg) => { 
+    setToast(msg); 
+    setTimeout(() => setToast(''), 2500); 
+  };
+
+  const getPrice = (plan) => {
     let base = 99;
     if (plan === 'Starter') base = 49;
     if (plan === 'Agency') base = 199;
@@ -26,214 +31,169 @@ export default function AuthPage() {
     return base;
   };
 
-  const getLeadsCount = (plan: 'Starter' | 'Pro' | 'Agency') => {
-    if (plan === 'Starter') return '500';
-    if (plan === 'Pro') return '2,000';
-    return '5,000';
-  };
-
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleAuth = (e) => {
     e.preventDefault();
-    window.location.href = '/dashboard';
+    if (activeTab === 'Create Account') {
+      showToast('ACCOUNT CREATED - INITIALIZING ' + selectedPlan.toUpperCase());
+    } else {
+      showToast('SIGNED IN SUCCESSFULLY');
+    }
   };
 
   return (
-    <main className="min-h-screen bg-white text-black flex flex-col">
+    <div className="min-h-screen bg-black text-white flex flex-col font-sans">
+      {/* Toast alert */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-50 bg-[#FFBE00] text-black font-black text-xs tracking-widest uppercase px-6 py-3 rounded-lg shadow-2xl transition-all">
+          ✓ {toast}
+        </div>
+      )}
+
       <TopNav />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 flex-1 w-full max-w-[1440px] mx-auto">
-        {/* Left Side: Auth Forms & Core Mission Statements (Black Background) */}
-        <section className="bg-black text-white p-8 md:p-16 flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(#FFBE00_1px,transparent_1px)] [background-size:20px_20px] opacity-10" />
+      <div className="flex-1 flex flex-col lg:flex-row max-w-7xl mx-auto w-full px-6 py-12 gap-12 items-center">
+        
+        {/* Left side text info */}
+        <div className="w-full lg:w-1/2 space-y-6 text-left">
+          <span className="text-[#FFBE00] font-black text-xs tracking-widest uppercase">SYSTEM ACCESS CONTROL</span>
+          <h1 className="text-4xl md:text-5xl font-black text-white uppercase tracking-wider leading-none">
+            UNLEASH THE POWER OF <span className="text-[#FFBE00]">XTREME</span> DATA
+          </h1>
+          <p className="text-zinc-500 text-sm font-medium leading-relaxed max-w-lg">
+            Create your credential access node to instantly launch real-time multi-source scrape sequences. Save, export, and automate local leads with zero proxy headache.
+          </p>
 
-          {/* Core Branding/Message */}
-          <div className="relative z-10 space-y-6 max-w-lg mb-12">
-            {/* FULL BADGE LOGO */}
-            <img 
-              src="https://media.base44.com/images/public/69db047707a15d69135e3de9/53ab5dec5_ChatGPTImageJul14202610_12_56PM1.png" 
-              style={{ height: '120px' }} 
-              className="object-contain" 
-              alt="XTREME SCRAPER Full Badge" 
-            />
-
-            <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-none uppercase pt-6">
-              UNLOCK THE POWER TO FIND.<br />
-              <span className="text-[#FFBE00] italic">SAVE. GROW.</span>
-            </h1>
-            <p className="text-gray-400 font-bold text-sm leading-relaxed">
-              Start building verified pipelines of local flooring contracts, general construction leads, and commercial projects in under 30 seconds.
-            </p>
-
-            {/* Core Trust Checklist */}
-            <div className="space-y-3 pt-4 text-xs font-black tracking-wider text-gray-300">
-              <div className="flex items-center space-x-2">
-                <span className="text-[#FFBE00]">✓</span> <span>124K+ LEADS SCAPEABLE TODAY</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-[#FFBE00]">✓</span> <span>GOOGLE, YELP & YELLOW PAGES CONNECTED</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-[#FFBE00]">✓</span> <span>EXPORT UNLIMITED CLEAN CSV FILES</span>
-              </div>
+          <div className="grid grid-cols-2 gap-4 pt-6 max-w-md">
+            <div className="bg-[#111] border border-zinc-900 rounded-xl p-4">
+              <span className="block text-[#FFBE00] font-black text-lg">10+</span>
+              <span className="block text-zinc-500 text-[9px] font-bold uppercase tracking-widest mt-1">Premium scraper sources</span>
+            </div>
+            <div className="bg-[#111] border border-zinc-900 rounded-xl p-4">
+              <span className="block text-[#FFBE00] font-black text-lg">100%</span>
+              <span className="block text-zinc-500 text-[9px] font-bold uppercase tracking-widest mt-1">Automatic anti-ban proxies</span>
             </div>
           </div>
+        </div>
 
-          {/* Sign In / Sign Up Form Box */}
-          <div className="relative z-10 bg-zinc-950 border border-zinc-900 rounded-2xl p-8 max-w-md w-full shadow-2xl">
-            {/* Form Toggle Header */}
-            <div className="flex border-b border-zinc-900 mb-6">
-              {['Sign In', 'Create Account'].map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab as any)}
-                  className={`flex-1 pb-3 text-xs font-black uppercase tracking-wider transition-all ${
-                    activeTab === tab 
-                      ? 'border-b-2 border-[#FFBE00] text-[#FFBE00]' 
-                      : 'text-zinc-500 hover:text-white'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
+        {/* Form Container */}
+        <div className="w-full lg:w-1/2 max-w-xl">
+          <div className="bg-[#111] border border-zinc-850 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
+            <div className="absolute -right-12 -top-12 w-32 h-24 bg-[#FFBE00]/5 rounded-full blur-2xl" />
+            
+            {/* Tab selector */}
+            <div className="flex bg-black p-1 rounded-xl border border-zinc-900 mb-8">
+              <button 
+                type="button"
+                onClick={() => setActiveTab('Create Account')}
+                className={'flex-1 py-3 text-center text-xs font-black tracking-widest uppercase rounded-lg transition-all ' + (
+                  activeTab === 'Create Account' ? 'bg-[#FFBE00] text-black' : 'text-zinc-400 hover:text-white'
+                )}
+              >
+                CREATE ACCOUNT
+              </button>
+              <button 
+                type="button"
+                onClick={() => setActiveTab('Sign In')}
+                className={'flex-1 py-3 text-center text-xs font-black tracking-widest uppercase rounded-lg transition-all ' + (
+                  activeTab === 'Sign In' ? 'bg-[#FFBE00] text-black' : 'text-zinc-400 hover:text-white'
+                )}
+              >
+                SIGN IN
+              </button>
             </div>
 
-            {/* Inputs Block */}
-            <form onSubmit={handleFormSubmit} className="space-y-4">
+            {/* Main Auth Form */}
+            <form onSubmit={handleAuth} className="space-y-6">
+              
               {activeTab === 'Create Account' && (
                 <div>
-                  <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1.5">Full Name</label>
+                  <label className="block text-[#888] font-bold text-[9px] uppercase tracking-widest mb-1.5">FULL NAME</label>
                   <input 
-                    type="text" 
+                    type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#FFBE00]"
+                    className="w-full bg-black border border-zinc-900 text-white rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#FFBE00] focus:border-[#FFBE00] font-bold transition-all"
                   />
                 </div>
               )}
 
               <div>
-                <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1.5">Email Address</label>
+                <label className="block text-[#888] font-bold text-[9px] uppercase tracking-widest mb-1.5">EMAIL ADDRESS</label>
                 <input 
-                  type="email" 
+                  type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#FFBE00]"
+                  className="w-full bg-black border border-zinc-900 text-white rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#FFBE00] focus:border-[#FFBE00] font-bold transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1.5">Password</label>
+                <label className="block text-[#888] font-bold text-[9px] uppercase tracking-widest mb-1.5">PASSWORD</label>
                 <input 
-                  type="password" 
+                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#FFBE00]"
+                  className="w-full bg-black border border-zinc-900 text-white rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#FFBE00] focus:border-[#FFBE00] font-bold transition-all"
                 />
               </div>
 
+              {/* Plan selector if Create Account */}
               {activeTab === 'Create Account' && (
-                <div>
-                  <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1.5">Confirm Password</label>
-                  <input 
-                    type="password" 
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#FFBE00]"
-                  />
+                <div className="space-y-4 border-t border-zinc-900 pt-6">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-[#888] font-bold text-[9px] uppercase tracking-widest">SELECT ACTIVE MEMBERSHIP</label>
+                    <div className="flex items-center space-x-2 bg-black border border-zinc-900 p-0.5 rounded-lg">
+                      <button 
+                        type="button"
+                        onClick={() => setBillingCycle('monthly')}
+                        className={'px-3 py-1.5 text-[8px] font-black tracking-widest uppercase rounded ' + (billingCycle === 'monthly' ? 'bg-[#FFBE00] text-black' : 'text-zinc-500 hover:text-white')}
+                      >
+                        MONTH
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setBillingCycle('yearly')}
+                        className={'px-3 py-1.5 text-[8px] font-black tracking-widest uppercase rounded ' + (billingCycle === 'yearly' ? 'bg-[#FFBE00] text-black' : 'text-zinc-500 hover:text-white')}
+                      >
+                        YEAR
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    {['Starter', 'Pro', 'Agency'].map((p) => {
+                      const isSel = selectedPlan === p;
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setSelectedPlan(p)}
+                          className={'flex flex-col items-center justify-center p-3 rounded-xl border transition-all text-center ' + (
+                            isSel 
+                              ? 'bg-zinc-950 border-[#FFBE00] shadow-[0_0_10px_rgba(255,190,0,0.15)]' 
+                              : 'bg-black border-zinc-900 hover:border-zinc-800'
+                          )}
+                        >
+                          <span className={'block text-[10px] font-black tracking-widest uppercase ' + (isSel ? 'text-[#FFBE00]' : 'text-zinc-400')}>{p}</span>
+                          <span className="block text-white font-black text-sm mt-1">{"$" + getPrice(p)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
-              {/* Core CTA */}
-              <button type="submit" className="w-full py-3.5 bg-[#FFBE00] hover:bg-amber-500 text-black text-xs font-extrabold tracking-widest uppercase rounded-lg transition-all shadow-md mt-2">
-                {activeTab === 'Create Account' ? 'CREATE ACCOUNT & START' : 'SIGN IN TO WORKSPACE'}
+              <button 
+                type="submit"
+                className="w-full bg-[#FFBE00] text-black font-black text-xs tracking-widest uppercase py-4 rounded-xl hover:brightness-110 transition-all mt-4"
+              >
+                {activeTab === 'Create Account' ? 'CREATE SECURE ACCOUNT' : 'SECURE SIGN IN'}
               </button>
-
-              {/* Divider */}
-              <div className="flex items-center space-x-3 py-2">
-                <div className="flex-1 h-px bg-zinc-900" />
-                <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">or</span>
-                <div className="flex-1 h-px bg-zinc-900" />
-              </div>
-
-              {/* Google Button */}
-              <button type="button" onClick={() => { window.location.href = '/dashboard'; }} className="w-full flex items-center justify-center space-x-2 py-3.5 border border-zinc-800 bg-transparent hover:bg-zinc-900 text-white text-xs font-extrabold tracking-widest uppercase rounded-lg transition-all">
-                <span className="text-red-500 font-extrabold">G</span>
-                <span>CONTINUE WITH GOOGLE</span>
-              </button>
-
-              <p className="text-[10px] text-zinc-600 font-bold leading-relaxed text-center pt-2">
-                By pressing button above, you agree to our Terms of Service & Privacy Policy rules.
-              </p>
             </form>
           </div>
-        </section>
+        </div>
 
-        {/* Right Side: Plan Pricing & Checkout Details (White Background) */}
-        <section className="p-8 md:p-16 space-y-10 bg-white border-l border-gray-100 flex flex-col justify-center">
-          
-          {/* Section 1 Heading */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-black text-black uppercase tracking-tight">1. Choose Your Plan</h2>
-              
-              {/* Month/Year toggle */}
-              <div className="flex items-center space-x-2 bg-gray-100 p-1 rounded-full">
-                <button 
-                  onClick={() => setBillingCycle('monthly')}
-                  className={`px-3 py-1 text-[10px] font-black uppercase rounded-full tracking-wider transition-all ${
-                    billingCycle === 'monthly' ? 'bg-black text-[#FFBE00]' : 'text-gray-500 hover:text-black'
-                  }`}
-                >
-                  Monthly
-                </button>
-                <button 
-                  onClick={() => setBillingCycle('yearly')}
-                  className={`px-3 py-1 text-[10px] font-black uppercase rounded-full tracking-wider transition-all ${
-                    billingCycle === 'yearly' ? 'bg-black text-[#FFBE00]' : 'text-gray-500 hover:text-black'
-                  }`}
-                >
-                  Yearly <span className="text-[#FFBE00] text-[9px] font-black ml-0.5">-20%</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Plan Boxes */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {['Starter', 'Pro', 'Agency'].map((plan) => {
-                const price = getPrice(plan as any);
-                const leads = getLeadsCount(plan as any);
-                const isSelected = selectedPlan === plan;
-
-                return (
-                  <button
-                    key={plan}
-                    onClick={() => setSelectedPlan(plan as any)}
-                    className={`rounded-xl p-5 border text-left flex flex-col justify-between h-40 relative transition-all ${
-                      isSelected 
-                        ? 'border-[#FFBE00] bg-[#FFBE00]/5 ring-2 ring-[#FFBE00]' 
-                        : 'border-gray-200 hover:border-gray-400 bg-white'
-                    }`}
-                  >
-                    {isSelected && (
-                      <span className="absolute top-3 right-3 text-[#FFBE00] text-xs font-black">✓ Selected</span>
-                    )}
-                    <div>
-                      <span className="text-xs font-black text-gray-400 uppercase tracking-widest">{plan}</span>
-                      <h3 className="text-2xl font-extrabold text-black pt-1">
-                        ${price}<span className="text-[11px] font-bold text-gray-400">/mo</span>
-                      </h3>
-                    </div>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider leading-relaxed">
-                      {leads} verified leads per billing node cycle.
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </section>
       </div>
-    </main>
+    </div>
   );
 }
