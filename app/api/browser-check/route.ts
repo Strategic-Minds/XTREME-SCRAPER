@@ -1,4 +1,4 @@
-import { bwHealth, bwLaunchCheck } from '../../lib/browser-worker';
+import { bwHealth, bwLaunchCheck } from '@/lib/browser-worker';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
