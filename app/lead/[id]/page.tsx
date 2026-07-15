@@ -57,13 +57,13 @@ export default function LeadDetail({ params }: PageProps) {
   };
 
   const handleSaveNotes = () => {
-    showToast('Internal private scrape notes saved successfully!');
+    alert('Internal private scrape notes saved successfully!');
   };
 
   const handleToggleSave = () => {
     const nextSaved = !isSaved;
     setIsSaved(nextSaved);
-    showToast(nextSaved ? 'Saved to memory!' : 'Removed from memory!');
+    alert(nextSaved ? 'Saved to memory!' : 'Removed from memory!');
   };
 
   const handleDownloadProfile = () => {
@@ -74,19 +74,18 @@ export default function LeadDetail({ params }: PageProps) {
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
-    showToast('Profile downloaded as JSON!');
+    showToast('✓ Downloaded');
   };
 
   const otherLeads = mockLeads.filter(l => l.id !== lead.id).slice(0, 3);
 
   return (
-    <div className="relative">
+    <div className="flex bg-white min-h-screen">
       {toast && (
-        <div className="fixed top-6 right-6 z-50 bg-black text-[#FFBE00] font-black text-xs tracking-widest uppercase px-6 py-3 rounded shadow-2xl border border-[#FFBE00]/30 animate-pulse">
+        <div className="fixed top-6 right-6 z-50 bg-black text-[#FFBE00] font-black text-xs tracking-widest uppercase px-6 py-3 rounded shadow-2xl border border-[#FFBE00]/30">
           {toast}
         </div>
       )}
-    <div className="flex bg-white min-h-screen">
       {/* Sidebar */}
       <Sidebar />
 
@@ -274,4 +273,3 @@ export default function LeadDetail({ params }: PageProps) {
     </div>
   );
 }
-    </div>
