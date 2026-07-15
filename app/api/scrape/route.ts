@@ -1,177 +1,252 @@
-import { NextRequest, NextResponse } from "next/server"
-import { exec } from "child_process"
-import { promisify } from "util"
-
+import { NextRequest, NextResponse } from 'next/server'
+import { exec } from 'child_process'
+import { promisify } from 'util'
 const execAsync = promisify(exec)
-export const dynamic    = "force-dynamic"
+
+export const dynamic = 'force-dynamic'
 export const maxDuration = 90
 
-const SB_URL      = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const SB_KEY      = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-const BW_URL      = process.env.BROWSER_WORKER_URL || "https://browserworker.vercel.app"
-const BW_SECRET   = process.env.BROWSER_WORKER_TOKEN || process.env.BROWSER_WORKER_SECRET || ""
-const AI_GW_URL   = process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1"
-const AI_GW_KEY   = process.env.AI_GATEWAY_API_KEY || ""
-const AI_MODEL    = process.env.AI_MODEL_FAST || "openai/gpt-4o-mini"
+const SB_URL = 'https://app.scrapingbee.com/api/v1/'
+const GM_URL = 'https://maps.googleapis.com/maps/api/place'
+const AI_GW_URL = process.env.AI_GATEWAY_BASE_URL || 'https://ai-gateway.vercel.sh/v1'
+const BW_URL = process.env.BROWSER_WORKER_URL || 'https://browserworker.vercel.app'
+
+const SB_KEY = process.env.SCRAPINGBEE_API_KEY || ''
+const GM_KEY = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY || ''
+const AI_KEY = process.env.AI_GATEWAY_API_KEY || ''
+const BW_SECRET = process.env.BROWSER_WORKER_TOKEN || process.env.BROWSER_WORKER_SECRET || ''
+const SB_URL_BASE = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const SB_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
 interface Lead {
-  company_name?: string; phone?: string; email?: string
-  website?: string; city?: string; state?: string
-  category?: string; source_url?: string
+  company_name: string
+  phone?: string
+  email?: string
+  website?: string
+  city?: string
+  state?: string
+  rating?: number
+  address?: string
+  category?: string
+  source_url?: string
+  source?: string
 }
 
-// ─── Supabase persistence ─────────────────────────────────────────────────────
-async function saveToSupabase(leads: Lead[], meta: { source: string; ms: number; industry: string; method: string }) {
-  if (!SB_URL || !SB_KEY || !leads.length) return { saved: 0 }
-  const headers = { "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}`, "Content-Type": "application/json", "Prefer": "return=minimal" }
-  await fetch(`${SB_URL}/rest/v1/scrape_runs`, {
-    method: "POST", headers,
-    body: JSON.stringify({ industry: meta.industry, location: meta.source, total_found: leads.length, new_leads: leads.length, duplicates_skipped: 0, status: "complete", notes: `method=${meta.method} ms=${meta.ms}`, started_at: new Date().toISOString(), completed_at: new Date().toISOString() }),
-  })
-  // Map to xps_leads column names (discovered from schema)
-  const rows = leads.map(l => ({ company_name: l.company_name || "Unknown", phone: l.phone || "", email: l.email || "", website: l.website || "", city: l.city || "", state: l.state || "AZ", category: l.category || meta.industry, source_url: l.source_url || meta.source, scraped_at: new Date().toISOString(), lead_score: 0 }))
-  // Try xps_leads, which has the right schema for scraper output
-  const r = await fetch(`${SB_URL}/rest/v1/xps_leads`, { method: "POST", headers: {...headers, "Prefer": "return=minimal,resolution=ignore-duplicates"}, body: JSON.stringify(rows) })
-  return { saved: r.ok ? leads.length : 0, table: r.ok ? "xps_leads" : "failed" }
-}
-
-// ─── BW site validation ───────────────────────────────────────────────────────
-async function bwValidateSite(url: string): Promise<{ reachable: boolean; blocked: boolean; title: string }> {
-  if (!BW_SECRET) return { reachable: false, blocked: false, title: "" }
+// ── TIER 1: Google Maps Places ──────────────────────────────────────────────
+async function googleMapsLeads(industry: string, city: string, state: string, limit: number): Promise<Lead[]> {
+  if (!GM_KEY) return []
+  const query = encodeURIComponent(`${industry} ${city} ${state}`)
   try {
-    const res = await fetch(BW_URL + "/api/run", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + BW_SECRET },
-      body: JSON.stringify({ version: "1.0", job_id: "validate-" + Date.now(), steps: [{ action: "goto", url, timeout: 15000 }, { action: "get_title" }], timeout_ms: 25000 }),
-    })
-    const data = await res.json()
-    const title = data.steps?.find((s: {action:string}) => s.action === "get_title")?.result?.title || ""
-    const blocked = title.toLowerCase().includes("cloudflare") || title.toLowerCase().includes("attention required") || title.toLowerCase().includes("access denied") || title.toLowerCase().includes("403") || title.toLowerCase().includes("captcha")
-    return { reachable: data.status === "pass", blocked, title }
-  } catch { return { reachable: false, blocked: false, title: "" } }
-}
-
-// ─── AI Gateway lead extraction ───────────────────────────────────────────────
-async function aiExtractLeads(industry: string, city: string, state: string, sources: string[], limit: number): Promise<Lead[]> {
-  if (!AI_GW_KEY) return []
-  const sourceList = sources.length ? sources.slice(0, 5).join(", ") : "Yellow Pages, Yelp, BBB"
-  const prompt = `List ${Math.min(limit, 20)} real ${industry} companies in ${city}, ${state}. Use your training knowledge of real local businesses.\n\nReturn ONLY a JSON array:\n[{"company_name":"...","phone":"XXX-XXX-XXXX or empty","city":"${city}","state":"${state}","category":"${industry}","website":"https://... or empty"}]\n\nNo explanation. Real business names only.`
-  try {
-    const res = await fetch(AI_GW_URL + "/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + AI_GW_KEY },
-      body: JSON.stringify({ model: AI_MODEL, messages: [{ role: "user", content: prompt }], temperature: 0.1, max_tokens: 1200 }),
-    })
+    const res = await fetch(`${GM_URL}/textsearch/json?query=${query}&key=${GM_KEY}`, { signal: AbortSignal.timeout(15000) })
     if (!res.ok) return []
     const data = await res.json()
-    const content: string = data.choices?.[0]?.message?.content || ""
-    const match = content.match(/\[[\s\S]*?\]/)
-    if (!match) return []
-    const parsed = JSON.parse(match[0]) as Lead[]
-    return parsed.map(l => ({ ...l, source_url: `ai_extracted:${industry}:${city},${state}` }))
-  } catch { return [] }
+    if (data.status !== 'OK') return []
+    const places = (data.results || []).slice(0, Math.min(limit, 20)) as Array<{name:string,place_id:string,rating?:number,formatted_address?:string,geometry?:unknown}>
+    // Fetch details for top 5 to get phone + website
+    const detailed = await Promise.allSettled(
+      places.slice(0, 5).map(async (p) => {
+        try {
+          const dr = await fetch(`${GM_URL}/details/json?place_id=${p.place_id}&fields=name,formatted_phone_number,website,rating,formatted_address&key=${GM_KEY}`, { signal: AbortSignal.timeout(8000) })
+          const dd = await dr.json()
+          const r = dd.result || {}
+          return { ...p, formatted_phone_number: r.formatted_phone_number || '', website: r.website || '' }
+        } catch { return p }
+      })
+    )
+    const detailMap = new Map<string, {formatted_phone_number?:string,website?:string}>()
+    detailed.forEach((r, i) => { if (r.status === 'fulfilled') detailMap.set(places[i].place_id, r.value as {formatted_phone_number?:string,website?:string}) })
+    return places.map(p => {
+      const d = detailMap.get(p.place_id) || {}
+      const addr = p.formatted_address || ''
+      const cityMatch = addr.match(/,\s*([^,]+),\s*AZ/i)
+      return {
+        company_name: p.name,
+        phone: (d as {formatted_phone_number?:string}).formatted_phone_number || '',
+        website: (d as {website?:string}).website || '',
+        address: addr,
+        city: cityMatch?.[1]?.trim() || city,
+        state,
+        rating: p.rating,
+        category: industry,
+        source_url: `https://maps.google.com/search/${encodeURIComponent(p.name)}`,
+        source: 'google_maps',
+      }
+    })
+  } catch (e) { console.error('[googleMaps]', e); return [] }
 }
 
-// ─── Direct fetch (for non-Cloudflare sources) ────────────────────────────────
-async function directScrape(url: string, industry: string): Promise<Lead[]> {
+// ── TIER 2: ScrapingBee ──────────────────────────────────────────────────────
+async function scrapingBeeLeads(industry: string, city: string, state: string): Promise<Lead[]> {
+  if (!SB_KEY) return []
   const leads: Lead[] = []
-  try {
-    const ctrl = new AbortController()
-    setTimeout(() => ctrl.abort(), 18000)
-    const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36", "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" }, signal: ctrl.signal })
-    if (!r.ok) return leads
-    const html = await r.text()
-    const ldMatches = [...html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)]
-    for (const m of ldMatches.slice(0, 15)) {
-      try {
-        const d = JSON.parse(m[1])
-        const items = Array.isArray(d) ? d : [d]
-        for (const item of items) {
-          if (item.name && (item["@type"] === "LocalBusiness" || item["@type"] === "Organization")) {
-            leads.push({ company_name: item.name, phone: item.telephone || "", email: item.email || "", website: item.url || "", city: item.address?.addressLocality || "", state: item.address?.addressRegion || "AZ", category: industry, source_url: url })
-          }
+  const targets = [
+    `https://www.yellowpages.com/search?search_terms=${encodeURIComponent(industry)}&geo_location_terms=${encodeURIComponent(city + ' ' + state)}`,
+    `https://www.yelp.com/search?find_desc=${encodeURIComponent(industry)}&find_loc=${encodeURIComponent(city + ' ' + state)}`,
+  ]
+  for (const targetUrl of targets) {
+    try {
+      const sbUrl = `${SB_URL}?api_key=${SB_KEY}&url=${encodeURIComponent(targetUrl)}&render_js=true&premium_proxy=true&country_code=us&block_ads=true`
+      const res = await fetch(sbUrl, { signal: AbortSignal.timeout(35000) })
+      if (!res.ok) continue
+      const html = await res.text()
+      // Yellow Pages parser
+      if (targetUrl.includes('yellowpages')) {
+        const nameRe = /class="business-name[^"]*"[^>]*>\s*<[^>]+>([^<]{3,80})</g
+        const phoneRe = /class="phones[^"]*"[^>]*>[^<]*<[^>]*>([(\)\d\s.\-]{10,16})</g
+        const webRe = /class="track-visit-website"[^>]+href="([^"]+)"/g
+        const cityRe = /class="locality[^"]*">([^<]{2,40})</g
+        const names = [...html.matchAll(nameRe)]
+        const phones = [...html.matchAll(phoneRe)]
+        const webs = [...html.matchAll(webRe)]
+        const cities = [...html.matchAll(cityRe)]
+        const seen = new Set<string>()
+        for (let i = 0; i < Math.min(names.length, 20); i++) {
+          const name = names[i]?.[1]?.trim()
+          if (!name || seen.has(name.toLowerCase())) continue
+          seen.add(name.toLowerCase())
+          leads.push({ company_name: name, phone: phones[i]?.[1]?.trim() || '', website: webs[i]?.[1]?.trim() || '', city: cities[i]?.[1]?.trim() || city, state, category: industry, source_url: targetUrl, source: 'yellowpages_scrapingbee' })
         }
-      } catch {}
-    }
-  } catch {}
+      } else if (targetUrl.includes('yelp')) {
+        // Yelp JSON-LD and structured data
+        const nameRe = /"name":"([^"<]{3,80})"/g
+        const phoneRe = /"phone":"([^"]{7,20})"/g
+        const webRe = /"url":"(https://www\.yelp\.com/biz/[^"]+)"/g
+        const names = [...html.matchAll(nameRe)]
+        const phones = [...html.matchAll(phoneRe)]
+        const seen = new Set<string>()
+        for (let i = 0; i < Math.min(names.length, 15); i++) {
+          const name = names[i]?.[1]?.trim()
+          if (!name || name.length < 3 || seen.has(name.toLowerCase())) continue
+          if (/^(yelp|search|open|closed|all|write)/i.test(name)) continue
+          seen.add(name.toLowerCase())
+          leads.push({ company_name: name, phone: phones[i]?.[1]?.trim() || '', city, state, category: industry, source_url: targetUrl, source: 'yelp_scrapingbee' })
+        }
+      }
+    } catch (e) { console.error('[scrapingBee]', e) }
+  }
   return leads
 }
 
-// ─── Build target URLs ─────────────────────────────────────────────────────────
-function buildTargetUrls(sources: string[], industry: string, city: string, state: string): string[] {
-  const q = encodeURIComponent(industry)
-  const loc = encodeURIComponent(`${city} ${state}`)
-  const map: Record<string, string> = {
-    "Yellow Pages": `https://www.yellowpages.com/search?search_terms=${q}&geo_location_terms=${loc}`,
-    "Yelp": `https://www.yelp.com/search?find_desc=${q}&find_loc=${loc}`,
-    "Angi": `https://www.angi.com/search?q=${q}&location=${loc}`,
-    "BBB": `https://www.bbb.org/search?find_text=${q}&find_loc=${loc}`,
-    "Houzz": `https://www.houzz.com/professionals/search?query=${q}&location=${loc}`,
-    "Google Maps": `https://www.google.com/maps/search/${q}+${loc}`,
-    "HomeAdvisor": `https://www.homeadvisor.com/category.Epoxy_Flooring.html`,
-    "Thumbtack": `https://www.thumbtack.com/search/?q=${q}`,
-    "Nextdoor": `https://nextdoor.com/find-pros/`,
-    "Bark": `https://www.bark.com/en/us/search/?q=${q}&location=${loc}`,
-  }
-  return (sources.length ? sources : ["Yellow Pages", "Yelp", "BBB"]).map(s => map[s]).filter(Boolean)
+// ── TIER 3: BW validation ────────────────────────────────────────────────────
+async function bwValidate(url: string): Promise<boolean> {
+  if (!BW_SECRET) return false
+  try {
+    const res = await fetch(BW_URL + '/api/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + BW_SECRET },
+      body: JSON.stringify({ version: '1.0', job_id: 'val-' + Date.now(), steps: [{ action: 'goto', url, timeout: 12000 }, { action: 'get_title' }], timeout_ms: 20000 }),
+      signal: AbortSignal.timeout(25000),
+    })
+    const data = await res.json()
+    const title = data.steps?.find((s:{action:string}) => s.action === 'get_title')?.result?.title || ''
+    return data.status === 'pass' && !title.toLowerCase().includes('cloudflare') && !title.toLowerCase().includes('error')
+  } catch { return false }
 }
 
-// ─── Main route ───────────────────────────────────────────────────────────────
+// ── TIER 4: AI Gateway fallback ──────────────────────────────────────────────
+async function aiLeads(industry: string, city: string, state: string, limit: number): Promise<Lead[]> {
+  if (!AI_KEY) return []
+  try {
+    const res = await fetch(AI_GW_URL + '/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AI_KEY },
+      body: JSON.stringify({ model: 'openai/gpt-4o-mini', messages: [{ role: 'user', content: `List ${Math.min(limit,12)} real ${industry} companies in ${city}, ${state}. Real businesses only. Return ONLY JSON array: [{"company_name":"...","phone":"...","city":"${city}","state":"${state}","category":"${industry}","website":"..."}]` }], temperature: 0.1, max_tokens: 800 }),
+      signal: AbortSignal.timeout(20000),
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    const content: string = data.choices?.[0]?.message?.content || ''
+    const match = content.match(/\[[\s\S]*?\]/)
+    if (!match) return []
+    const parsed = JSON.parse(match[0]) as Lead[]
+    return parsed.map(l => ({ ...l, source: 'ai_gateway' }))
+  } catch { return [] }
+}
+
+// ── Supabase save ────────────────────────────────────────────────────────────
+async function saveLeads(leads: Lead[], meta: { industry: string; location: string; method: string; ms: number }) {
+  if (!SB_URL_BASE || !SB_ROLE_KEY || !leads.length) return { saved: 0 }
+  const headers = { 'apikey': SB_ROLE_KEY, 'Authorization': `Bearer ${SB_ROLE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal,resolution=ignore-duplicates' }
+  await fetch(`${SB_URL_BASE}/rest/v1/scrape_runs`, { method: 'POST', headers, body: JSON.stringify({ industry: meta.industry, location: meta.location, total_found: leads.length, new_leads: leads.length, duplicates_skipped: 0, status: 'complete', notes: `method=${meta.method} ms=${meta.ms}`, started_at: new Date().toISOString(), completed_at: new Date().toISOString() }) })
+  const rows = leads.map(l => ({ company_name: l.company_name, phone: l.phone || '', email: l.email || '', website: l.website || '', city: l.city || '', state: l.state || 'AZ', category: l.category || meta.industry, source_url: l.source_url || '', scraped_at: new Date().toISOString(), lead_score: Math.round((l.rating || 0) * 20), address: l.address || '', source: l.source || 'scraper' }))
+  const r = await fetch(`${SB_URL_BASE}/rest/v1/xps_leads`, { method: 'POST', headers, body: JSON.stringify(rows) })
+  return { saved: r.ok ? leads.length : 0 }
+}
+
+// ── Deduplicate ───────────────────────────────────────────────────────────────
+function dedup(leads: Lead[]): Lead[] {
+  const seen = new Set<string>()
+  return leads.filter(l => {
+    const key = l.company_name.toLowerCase().replace(/[^a-z0-9]/g, '')
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+// ── Main handler ──────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   const start = Date.now()
-  const body  = await req.json()
-  const { url, sources = [], industry = "Epoxy Flooring", city = "Phoenix", state = "AZ", max_pages = 20, limit = 15 } = body as {
-    url?: string; sources?: string[]; industry?: string; city?: string; state?: string; max_pages?: number; limit?: number
+  const body = await req.json()
+  const { industry = 'Epoxy Flooring', city = 'Phoenix', state = 'AZ', limit = 20, sources = [] } = body as { industry?: string; city?: string; state?: string; limit?: number; sources?: string[] }
+
+  let allLeads: Lead[] = []
+  const methods: string[] = []
+
+  // Tier 1: Google Maps (always first — best quality)
+  if (GM_KEY) {
+    const gmLeads = await googleMapsLeads(industry, city, state, limit)
+    if (gmLeads.length > 0) { allLeads.push(...gmLeads); methods.push('google_maps') }
   }
 
-  let leads: Lead[] = []
-  let method = "none"
-  let bwValidation: { reachable: boolean; blocked: boolean; title: string } | null = null
-
-  // Step 1: BW site validation (confirms Browserbase Chromium is live & checking reachability)
-  const targetUrl = url || buildTargetUrls(sources, industry, city, state)[0]
-  if (BW_SECRET && targetUrl) {
-    bwValidation = await bwValidateSite(targetUrl)
-    console.log(`[scrape] BW validation: reachable=${bwValidation.reachable} blocked=${bwValidation.blocked} title=${bwValidation.title}`)
+  // Tier 2: ScrapingBee (run in parallel with GM)
+  if (SB_KEY && allLeads.length < limit) {
+    const sbLeads = await scrapingBeeLeads(industry, city, state)
+    if (sbLeads.length > 0) { allLeads.push(...sbLeads); methods.push('scrapingbee') }
   }
 
-  // Step 2: If site not blocked → try direct fetch for structured data
-  if (!bwValidation?.blocked && targetUrl) {
-    const directLeads = await directScrape(targetUrl, industry)
-    if (directLeads.length > 0) { leads = directLeads; method = "direct_json_ld" }
+  // Dedup after combining GM + SB
+  allLeads = dedup(allLeads)
+
+  // Tier 3: BW validate top result website (non-blocking, just for metadata)
+  let bwValidated = false
+  if (BW_SECRET && allLeads[0]?.website) {
+    bwValidated = await bwValidate(allLeads[0].website)
   }
 
-  // Step 3: AI Gateway lead extraction (primary intelligence source when scraping is blocked)
-  if (leads.length < 5 && AI_GW_KEY) {
-    const aiLeads = await aiExtractLeads(industry, city, state, sources, limit)
-    if (aiLeads.length > leads.length) { leads = aiLeads; method = "ai_gateway_extraction" }
-  }
-
-  // Step 4: Python asyncio fallback
-  if (leads.length < 3 && targetUrl) {
-    try {
-      const escaped = targetUrl.replace(/["']/g, "")
-      const cmd = `timeout 35 python3 -c "import asyncio,json,sys;sys.path.insert(0,'.');from scraper.core import scrape;result=asyncio.run(scrape('${escaped}',max_pages=10));print(json.dumps({'leads':result.get('leads',[]),'ok':True}))" 2>/dev/null`
-      const { stdout } = await execAsync(cmd, { timeout: 40000 })
-      const parsed = JSON.parse(stdout.trim().split("\n").pop() || "{}")
-      if (parsed.ok && parsed.leads?.length > leads.length) { leads = parsed.leads; method = "asyncio_python" }
-    } catch {}
+  // Tier 4: AI fallback only if real sources returned <3
+  if (allLeads.length < 3) {
+    const aiL = await aiLeads(industry, city, state, limit)
+    if (aiL.length > 0) { allLeads.push(...aiL); methods.push('ai_gateway') }
+    allLeads = dedup(allLeads)
   }
 
   const ms = Date.now() - start
-  const saved = await saveToSupabase(leads, { source: targetUrl || `${city},${state}`, ms, industry, method })
+  const saved = await saveLeads(allLeads.slice(0, limit), { industry, location: `${city}, ${state}`, method: methods.join('+'), ms })
 
   return NextResponse.json({
-    ok: true, method,
-    browser_worker_used: !!bwValidation,
-    browser_worker_validated: bwValidation?.reachable ?? false,
-    site_blocked_by_cloudflare: bwValidation?.blocked ?? false,
-    leads_found: leads.length, leads_saved: saved.saved,
+    ok: true,
+    method: methods.join('+') || 'none',
+    sources_used: methods,
+    google_maps_used: methods.includes('google_maps'),
+    scrapingbee_used: methods.includes('scrapingbee'),
+    browser_worker_validated: bwValidated,
+    ai_fallback_used: methods.includes('ai_gateway'),
+    leads_found: allLeads.length,
+    leads_saved: saved.saved,
     duration_ms: ms,
-    leads: leads.slice(0, 15),
+    leads: allLeads.slice(0, limit),
   })
 }
 
 export async function GET() {
-  return NextResponse.json({ status: "ready", endpoint: "/api/scrape", browser_worker_configured: !!(process.env.BROWSER_WORKER_TOKEN || process.env.BROWSER_WORKER_SECRET), ai_gateway_configured: !!process.env.AI_GATEWAY_API_KEY })
+  return NextResponse.json({
+    status: 'ready',
+    capabilities: {
+      google_maps: !!process.env.GOOGLE_MAPS_API_KEY,
+      scrapingbee: !!process.env.SCRAPINGBEE_API_KEY,
+      browser_worker: !!(process.env.BROWSER_WORKER_TOKEN || process.env.BROWSER_WORKER_SECRET),
+      ai_gateway: !!process.env.AI_GATEWAY_API_KEY,
+    }
+  })
 }
