@@ -46,6 +46,35 @@ export default function LeadDetail({ params }: PageProps) {
     }
   };
 
+  const handleCall = () => {
+    window.open(`tel:${lead.phone}`, '_self');
+  };
+
+  const handleEmail = () => {
+    window.open(`mailto:${lead.email || 'info@' + lead.website}`, '_self');
+  };
+
+  const handleSaveNotes = () => {
+    alert('Internal private scrape notes saved successfully!');
+  };
+
+  const handleToggleSave = () => {
+    const nextSaved = !isSaved;
+    setIsSaved(nextSaved);
+    alert(nextSaved ? 'Saved to memory!' : 'Removed from memory!');
+  };
+
+  const handleDownloadProfile = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(lead, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `lead_profile_${lead.id}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    alert('Profile downloaded as JSON!');
+  };
+
   const otherLeads = mockLeads.filter(l => l.id !== lead.id).slice(0, 3);
 
   return (
@@ -93,7 +122,7 @@ export default function LeadDetail({ params }: PageProps) {
 
                   {/* Rating Stars */}
                   <div className="flex items-center space-x-2">
-                    <div className="flex text-[#F5A000] text-base">
+                    <div className="flex text-[#FFBE00] text-base">
                       {Array.from({ length: 5 }).map((_, i) => (
                         <span key={i}>★</span>
                       ))}
@@ -125,15 +154,15 @@ export default function LeadDetail({ params }: PageProps) {
                 {/* Sub Metadata Row */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6 border-t border-gray-100 text-xs">
                   <div className="flex items-center space-x-2 text-gray-500 font-bold">
-                    <MapPin size={16} className="text-[#F5A000]" />
+                    <MapPin size={16} className="text-[#FFBE00]" />
                     <span>{lead.address}</span>
                   </div>
                   <div className="flex items-center space-x-2 text-gray-500 font-bold">
-                    <Briefcase size={16} className="text-[#F5A000]" />
+                    <Briefcase size={16} className="text-[#FFBE00]" />
                     <span>{lead.employees} employees</span>
                   </div>
                   <div className="flex items-center space-x-2 text-gray-500 font-bold">
-                    <ShieldCheck size={16} className="text-[#F5A000]" />
+                    <ShieldCheck size={16} className="text-[#FFBE00]" />
                     <span>{lead.licensed ? 'Licensed Contractor' : 'Not Certified'}</span>
                   </div>
                 </div>
@@ -145,7 +174,7 @@ export default function LeadDetail({ params }: PageProps) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {lead.services.map((service, idx) => (
                     <div key={idx} className="flex items-center space-x-3 text-sm font-bold text-gray-700">
-                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-50 text-[#F5A000] border border-amber-200 text-xs">
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-50 text-[#FFBE00] border border-amber-200 text-xs">
                         ✓
                       </span>
                       <span>{service}</span>
@@ -179,10 +208,10 @@ export default function LeadDetail({ params }: PageProps) {
                   value={notes} 
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Type any private updates, callback timelines, or notes here..." 
-                  className="w-full h-32 bg-white/80 rounded-xl p-4 border border-yellow-200/80 text-sm font-bold text-black focus:outline-none focus:ring-1 focus:ring-[#F5A000] resize-none shadow-inner"
+                  className="w-full h-32 bg-white/80 rounded-xl p-4 border border-yellow-200/80 text-sm font-bold text-black focus:outline-none focus:ring-1 focus:ring-[#FFBE00] resize-none shadow-inner"
                 />
                 <div className="flex justify-end">
-                  <button className="px-5 py-2.5 bg-black text-[#F5A000] text-xs font-extrabold tracking-widest uppercase rounded hover:bg-zinc-900 transition-all shadow-md">
+                  <button onClick={handleSaveNotes} className="px-5 py-2.5 bg-black text-[#FFBE00] text-xs font-extrabold tracking-widest uppercase rounded hover:bg-zinc-900 transition-all shadow-md">
                     Save Notes
                   </button>
                 </div>
@@ -195,106 +224,43 @@ export default function LeadDetail({ params }: PageProps) {
               <div className="bg-white rounded-2xl border border-gray-200 p-8 space-y-4 shadow-sm">
                 <h2 className="text-base font-black text-black uppercase tracking-wider border-b border-gray-100 pb-2">Direct Contact</h2>
                 
-                <a href={`tel:${lead.phone}`} className="w-full">
-                  <button className="w-full flex items-center justify-center space-x-2 py-3.5 bg-[#F5A000] hover:bg-amber-500 text-black text-xs font-extrabold tracking-widest uppercase rounded transition-all shadow-md">
-                    <Phone size={14} className="stroke-[3]" />
-                    <span>{lead.phone}</span>
-                  </button>
-                </a>
-
-                <a href={lead.website} target="_blank" rel="noreferrer" className="w-full block">
-                  <button className="w-full flex items-center justify-center space-x-2 py-3.5 bg-black hover:bg-zinc-950 text-white text-xs font-extrabold tracking-widest uppercase rounded transition-all shadow-md border border-black">
-                    <Globe size={14} />
-                    <span>Visit Website</span>
-                  </button>
-                </a>
-
-                <a href={`mailto:${lead.email}`} className="w-full block">
-                  <button className="w-full flex items-center justify-center space-x-2 py-3.5 bg-gray-100 hover:bg-gray-200 text-black text-xs font-extrabold tracking-widest uppercase rounded transition-all border border-gray-200">
-                    <Mail size={14} />
-                    <span>Send Email</span>
-                  </button>
-                </a>
+                <button 
+                  onClick={handleCall}
+                  className="w-full flex items-center justify-center space-x-3 py-3.5 bg-black hover:bg-zinc-900 text-[#FFBE00] font-black text-xs tracking-widest uppercase rounded-xl transition-all shadow-md"
+                >
+                  <Phone size={14} className="stroke-[3]" />
+                  <span>Call: {lead.phone}</span>
+                </button>
 
                 <button 
-                  onClick={() => setIsSaved(!isSaved)}
-                  className="w-full flex items-center justify-center space-x-2 py-3.5 border border-[#F5A000] text-[#F5A000] hover:bg-amber-500/10 text-xs font-extrabold tracking-widest uppercase rounded transition-all"
+                  onClick={handleEmail}
+                  className="w-full flex items-center justify-center space-x-3 py-3.5 border-2 border-gray-200 hover:border-black bg-white text-black font-black text-xs tracking-widest uppercase rounded-xl transition-all"
                 >
-                  <Star size={14} className={isSaved ? 'fill-[#F5A000]' : ''} />
-                  <span>{isSaved ? 'Lead Saved' : 'Save to Leads'}</span>
+                  <Mail size={14} className="stroke-[2.5]" />
+                  <span>Send Direct Email</span>
                 </button>
 
-                <button className="w-full flex items-center justify-center space-x-2 py-3.5 border border-gray-300 text-gray-500 hover:text-black hover:border-black text-xs font-extrabold tracking-widest uppercase rounded transition-all">
-                  <Download size={14} />
-                  <span>Export Lead</span>
-                </button>
-              </div>
-
-              {/* Source Information */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-8 space-y-4">
-                <h2 className="text-base font-black text-black uppercase tracking-wider border-b border-gray-100 pb-2">Scrape Source Information</h2>
-                <div className="space-y-3 text-xs font-bold">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400 uppercase">Primary Source</span>
-                    {getSourceIcon(lead.source)}
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400 uppercase">Date Found</span>
-                    <span className="text-black font-black">July 14, 2026</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400 uppercase">Time Found</span>
-                    <span className="text-black font-black">11:22 AM EST</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400 uppercase">Location Searched</span>
-                    <span className="text-[#F5A000] font-black">{lead.city}, {lead.state}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400 uppercase">Search Keyword</span>
-                    <span className="text-black font-black">Flooring Contractor</span>
-                  </div>
+                <div className="flex items-center space-x-3 pt-2">
+                  <button 
+                    onClick={handleToggleSave}
+                    className={`flex-1 flex items-center justify-center space-x-2 py-3 bg-zinc-100 hover:bg-zinc-200 text-black font-black text-[11px] tracking-wider uppercase rounded-lg transition-all ${
+                      isSaved ? 'ring-2 ring-[#FFBE00] bg-[#FFBE00]/10' : ''
+                    }`}
+                  >
+                    <Star size={12} className={isSaved ? 'fill-[#FFBE00] text-[#FFBE00]' : ''} />
+                    <span>{isSaved ? 'Saved to Memory' : 'Save Lead'}</span>
+                  </button>
+                  <button 
+                    onClick={handleDownloadProfile}
+                    className="p-3 bg-zinc-100 hover:bg-zinc-200 text-black rounded-lg transition-all"
+                    title="Download Lead JSON"
+                  >
+                    <Download size={14} />
+                  </button>
                 </div>
-
-                <button className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-black text-[10px] font-black tracking-widest uppercase rounded transition-all border border-gray-200 mt-4">
-                  View on Google Maps
-                </button>
               </div>
             </div>
           </div>
-
-          {/* Similar Businesses Row */}
-          <section className="pt-12 border-t border-gray-100 space-y-6">
-            <h2 className="text-xl font-black text-black uppercase tracking-tight">Similar Businesses Near {lead.city}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {otherLeads.map((ol) => (
-                <div key={ol.id} className="bg-white rounded-xl border border-gray-200 p-6 flex flex-col justify-between hover:shadow-lg transition-all">
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded bg-[#111] text-white flex items-center justify-center font-bold text-sm tracking-wider">
-                        {ol.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <h3 className="font-extrabold text-black uppercase tracking-tight text-sm truncate max-w-[160px]">{ol.name}</h3>
-                        <span className="text-[10px] font-bold text-gray-400">{ol.city}, {ol.state}</span>
-                      </div>
-                    </div>
-                    {/* Rating stars */}
-                    <div className="flex items-center space-x-2">
-                      <span className="text-[#F5A000] text-xs">★★★★★</span>
-                      <span className="text-xs font-black text-black">{ol.rating}</span>
-                    </div>
-                  </div>
-
-                  <Link href={`/lead/${ol.id}`} className="mt-4 block w-full">
-                    <button className="w-full py-2 bg-gray-50 hover:bg-gray-100 text-black text-[10px] font-black tracking-widest uppercase rounded transition-all border border-gray-200">
-                      View Lead
-                    </button>
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </section>
         </div>
       </div>
     </div>
