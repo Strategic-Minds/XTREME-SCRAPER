@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Lead } from '../lib/mockData';
-import { MoreVertical, Star, Check } from 'lucide-react';
+import { Star, Check, Phone } from 'lucide-react';
 
 interface LeadTableProps {
   leads: Lead[];
