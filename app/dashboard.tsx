@@ -66,7 +66,7 @@ function exportCSV(leads: Lead[]) {
 export default function Dashboard() {
   const [industry, setIndustry] = useState("")
   const [city,     setCity]     = useState("")
-  const [state,    setState]    = useState("")
+  const [state,    setState]    = useState("AZ")
   const [limit,    setLimit]    = useState("25")
   const [running,  setRunning]  = useState(false)
   const [jobs,     setJobs]     = useState<ScrapeJob[]>([])
