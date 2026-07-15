@@ -12,16 +12,20 @@ export default function Memory() {
   const [leads, setLeads] = React.useState(mockLeads);
   const [savedIds, setSavedIds] = React.useState<string[]>(['lead-1', 'lead-2', 'lead-4']);
   const [activeTab, setActiveTab] = React.useState('Saved Leads');
+  const [toast, setToast] = React.useState('');
+  const [newNote, setNewNote] = React.useState('');
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
 
   const tabs = ['Saved Leads', 'Saved Searches', 'Notes', 'History', 'Collections', 'Tags'];
 
   const handleToggleSave = (id: string) => {
     if (savedIds.includes(id)) {
       setSavedIds(savedIds.filter(item => item !== id));
-      alert(`Removed lead from memory!`);
+      showToast('✗ Removed from Memory');
     } else {
       setSavedIds([...savedIds, id]);
-      alert(`Saved lead to memory!`);
+      showToast('✓ Saved to Memory');
     }
   };
 
@@ -34,13 +38,13 @@ export default function Memory() {
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
-    alert('Exported saved leads from memory as JSON!');
+    showToast('✓ Exported as JSON');
   };
 
   const handleClearMemory = () => {
-    if (confirm("Are you sure you want to clear all memory profiles?")) {
+    if (confirm("Are you sure you want to clear all saved leads?")) {
       setSavedIds([]);
-      alert("Memory lists successfully cleared.");
+      showToast("✓ Memory cleared");
     }
   };
 
@@ -49,6 +53,11 @@ export default function Memory() {
 
   return (
     <div className="flex bg-white min-h-screen">
+      {toast && (
+        <div className="fixed top-6 right-6 z-50 bg-black text-[#FFBE00] font-black text-xs tracking-widest uppercase px-6 py-3 rounded shadow-2xl border border-[#FFBE00]/30 animate-pulse">
+          {toast}
+        </div>
+      )}
       {/* Left Sidebar */}
       <Sidebar />
 
@@ -137,10 +146,10 @@ export default function Memory() {
                   <span className="text-gray-300">|</span>
                   <button onClick={handleClearMemory} className="text-xs font-black text-red-500 hover:text-red-700 transition-colors uppercase tracking-widest">Clear All</button>
                   <span className="text-gray-300">|</span>
-                  <button onClick={() => alert('Opening collections setup panel...')} className="text-xs font-black text-gray-400 hover:text-black transition-colors uppercase tracking-widest">Manage Collections</button>
+                  <button onClick={() => setActiveTab('Collections')} className="text-xs font-black text-gray-400 hover:text-black transition-colors uppercase tracking-widest">Manage Collections</button>
                 </div>
 
-                <button onClick={() => alert('Starting automated scrape pipeline...')} className="flex items-center space-x-2 bg-[#FFBE00] hover:bg-amber-500 text-black font-black text-xs tracking-widest uppercase px-5 py-2.5 rounded shadow-md transition-colors">
+                <button onClick={() => { window.location.href = '/dashboard'; }} className="flex items-center space-x-2 bg-[#FFBE00] hover:bg-amber-500 text-black font-black text-xs tracking-widest uppercase px-5 py-2.5 rounded shadow-md transition-colors">
                   <Plus size={14} className="stroke-[3]" />
                   <span>Add Lead</span>
                 </button>
@@ -170,12 +179,12 @@ export default function Memory() {
               <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
                 <div className="flex items-center justify-between border-b border-gray-100 pb-2">
                   <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Top Collections</h3>
-                  <button onClick={() => alert('Displaying all collections...')} className="text-[10px] font-black text-[#FFBE00] hover:underline uppercase tracking-wider">All</button>
+                  <button onClick={() => { /* show all - already visible */ }} className="text-[10px] font-black text-[#FFBE00] hover:underline uppercase tracking-wider">All</button>
                 </div>
                 <div className="space-y-3">
                   {mockCollections.map((col, i) => (
                     <div key={i} className="flex items-center justify-between text-xs font-bold">
-                      <span onClick={() => alert(`Showing collection: ${col.name}`)} className="text-gray-700 hover:text-[#FFBE00] cursor-pointer transition-colors uppercase tracking-tight">{col.name}</span>
+                      <span onClick={() => showToast(`▸ ${col.name}`)} className="text-gray-700 hover:text-[#FFBE00] cursor-pointer transition-colors uppercase tracking-tight">{col.name}</span>
                       <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-500 font-extrabold">{col.count}</span>
                     </div>
                   ))}
