@@ -1,12 +1,11 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import Sidebar from '../../components/Sidebar';
 import TopNav from '../../components/TopNav';
-import LeadTable from '../../components/LeadTable';
-import { mockLeads, mockCollections, mockRecentActivities } from '../../lib/mockData';
-import { Search, SlidersHorizontal, Plus, Mail, ShieldAlert, ArrowRight, Library, Layers, Sparkles } from 'lucide-react';
+import { mockLeads } from '../../lib/mockData';
+import { Search, Star, MessageSquare, History, Bookmark, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 
 export default function Memory() {
   const [leads, setLeads] = React.useState(mockLeads);
@@ -22,176 +21,190 @@ export default function Memory() {
   const handleToggleSave = (id: string) => {
     if (savedIds.includes(id)) {
       setSavedIds(savedIds.filter(item => item !== id));
-      showToast('✗ Removed from Memory');
+      showToast('REMOVED FROM SAVED LIST');
     } else {
       setSavedIds([...savedIds, id]);
-      showToast('✓ Saved to Memory');
+      showToast('ADDED TO SAVED LIST');
     }
   };
 
-  const handleExportData = () => {
-    const savedLeadsData = leads.filter(l => savedIds.includes(l.id));
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(savedLeadsData, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", "xtreme_scraper_saved_leads.json");
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-    showToast('✓ Exported as JSON');
+  const handleAddNote = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNote.trim()) return;
+    showToast('NEW SCRAPE INSIGHT NOTE SAVED');
+    setNewNote('');
   };
 
-  const handleClearMemory = () => {
-    if (confirm("Are you sure you want to clear all saved leads?")) {
-      setSavedIds([]);
-      showToast("✓ Memory cleared");
-    }
-  };
-
-  // Only show the saved leads in the table
-  const savedLeads = leads.filter(l => savedIds.includes(l.id));
+  const savedLeadsList = leads.filter(l => savedIds.includes(l.id));
 
   return (
-    <div className="flex bg-white min-h-screen">
+    <div className="flex bg-black min-h-screen text-white font-sans">
+      {/* Toast Notification */}
       {toast && (
-        <div className="fixed top-6 right-6 z-50 bg-black text-[#FFBE00] font-black text-xs tracking-widest uppercase px-6 py-3 rounded shadow-2xl border border-[#FFBE00]/30 animate-pulse">
-          {toast}
+        <div className="fixed top-6 right-6 z-50 bg-[#FFBE00] text-black font-black text-xs tracking-widest uppercase px-6 py-3 rounded-lg shadow-2xl transition-all">
+          ✓ {toast}
         </div>
       )}
-      {/* Left Sidebar */}
+
       <Sidebar />
-
-      {/* Main Content Workspace */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col">
         <TopNav />
+        <div className="p-8 max-w-7xl mx-auto w-full">
 
-        {/* Inner Padding Container */}
-        <div className="p-8 md:p-12 space-y-10 overflow-y-auto max-w-7xl w-full mx-auto">
-          {/* Header */}
-          <div className="flex flex-col space-y-1.5 pb-6 border-b border-gray-100 relative">
-            <div className="absolute right-0 top-0 opacity-5 pointer-events-none select-none">
-              <span className="text-8xl font-black text-[#FFBE00]">XS</span>
-            </div>
-            <span className="text-[10px] font-black text-[#FFBE00] tracking-widest uppercase">Saved Intelligence</span>
-            <h1 className="text-3xl font-extrabold tracking-tight text-black uppercase flex items-center space-x-2">
-              <span>MEMORY</span>
-              <Sparkles className="text-[#FFBE00]" size={24} />
-            </h1>
+          {/* Header without giant watermark */}
+          <div className="mb-8">
+            <span className="text-[#888] font-bold text-[10px] uppercase tracking-widest">WORKSPACE / INSIGHT MEMORY</span>
+            <h1 className="text-3xl font-black text-white uppercase tracking-wider mt-1">SYSTEM MEMORY</h1>
           </div>
 
-          {/* Navigation Links back to Dashboard */}
-          <div className="flex items-center space-x-4">
-            <Link href="/dashboard" className="text-xs font-black text-[#FFBE00] hover:underline uppercase tracking-widest flex items-center space-x-1">
-              <span>← Back to Dashboard</span>
-            </Link>
-          </div>
-
-          {/* Quick Metrics Pills */}
-          <div className="flex flex-wrap gap-3">
-            <div className="px-5 py-3 bg-zinc-950 text-white rounded-full flex items-center space-x-3 shadow-md border border-zinc-900">
-              <span className="text-[#FFBE00] text-xs font-black">SAVED LEADS</span>
-              <span className="font-extrabold text-sm border-l border-zinc-800 pl-3">{savedLeads.length}</span>
-            </div>
-            <div className="px-5 py-3 bg-zinc-950 text-white rounded-full flex items-center space-x-3 shadow-md border border-zinc-900">
-              <span className="text-[#FFBE00] text-xs font-black">SAVED SEARCHES</span>
-              <span className="font-extrabold text-sm border-l border-zinc-800 pl-3">124</span>
-            </div>
-            <div className="px-5 py-3 bg-zinc-950 text-white rounded-full flex items-center space-x-3 shadow-md border border-zinc-900">
-              <span className="text-[#FFBE00] text-xs font-black">COLLECTIONS</span>
-              <span className="font-extrabold text-sm border-l border-zinc-800 pl-3">28</span>
-            </div>
-          </div>
-
-          {/* Tabs Navigation */}
-          <div className="flex overflow-x-auto border-b border-gray-200">
-            {tabs.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-6 py-3.5 text-xs font-extrabold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all ${
-                  activeTab === tab 
-                    ? 'border-[#FFBE00] text-[#FFBE00]' 
-                    : 'border-transparent text-gray-400 hover:text-black hover:border-gray-200'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            {/* Table & Filtering: Colspan 3 */}
-            <div className="lg:col-span-3 space-y-6">
-              {/* Filter Bar */}
-              <div className="flex flex-wrap items-center gap-3">
-                <input 
-                  type="text" 
-                  placeholder="Search saved list..." 
-                  className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-[#FFBE00] flex-1 min-w-[200px]"
-                />
-                
-                <select className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-black text-gray-500 hover:text-black uppercase tracking-wider bg-white cursor-pointer focus:outline-none">
-                  <option>All Collections</option>
-                </select>
-                <select className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-black text-gray-500 hover:text-black uppercase tracking-wider bg-white cursor-pointer focus:outline-none">
-                  <option>All Tags</option>
-                </select>
-              </div>
-
-              {/* Action Ribbon & Add Lead button */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <span className="text-sm font-black text-black uppercase tracking-tight">{savedLeads.length} saved leads</span>
-                  <button onClick={handleExportData} className="text-xs font-black text-gray-400 hover:text-black transition-colors uppercase tracking-widest">Export JSON</button>
-                  <span className="text-gray-300">|</span>
-                  <button onClick={handleClearMemory} className="text-xs font-black text-red-500 hover:text-red-700 transition-colors uppercase tracking-widest">Clear All</button>
-                  <span className="text-gray-300">|</span>
-                  <button onClick={() => setActiveTab('Collections')} className="text-xs font-black text-gray-400 hover:text-black transition-colors uppercase tracking-widest">Manage Collections</button>
-                </div>
-
-                <button onClick={() => { window.location.href = '/dashboard'; }} className="flex items-center space-x-2 bg-[#FFBE00] hover:bg-amber-500 text-black font-black text-xs tracking-widest uppercase px-5 py-2.5 rounded shadow-md transition-colors">
-                  <Plus size={14} className="stroke-[3]" />
-                  <span>Add Lead</span>
+          {/* Pill Navigation Tab Buttons */}
+          <div className="flex flex-wrap gap-2.5 bg-[#111] p-1.5 rounded-xl border border-zinc-900 w-fit mb-8">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    showToast('TAB SWITCHED TO ' + tab.toUpperCase());
+                  }}
+                  className={'px-5 py-2.5 rounded-lg text-xs font-black tracking-widest uppercase transition-all ' + (
+                    isActive 
+                      ? 'bg-[#FFBE00] text-black shadow-lg shadow-[#FFBE00]/10' 
+                      : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+                  )}
+                >
+                  {tab}
                 </button>
-              </div>
-
-              {/* Leads Table Component */}
-              <LeadTable leads={savedLeads} onToggleSave={handleToggleSave} savedIds={savedIds} />
-            </div>
-
-            {/* Sidebar Columns: Recent Activities & Collections */}
-            <div className="space-y-8">
-              {/* Recent Activity */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
-                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2">Recent Activity</h3>
-                <div className="space-y-4">
-                  {mockRecentActivities.map((act, i) => (
-                    <div key={i} className="flex flex-col space-y-0.5">
-                      <span className="text-xs font-extrabold text-black leading-tight uppercase tracking-tight">{act.text}</span>
-                      <span className="text-[11px] text-gray-500 font-medium truncate max-w-[220px]">{act.detail}</span>
-                      <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider pt-0.5">{act.time}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Top Collections */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                  <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Top Collections</h3>
-                  <button onClick={() => { /* show all - already visible */ }} className="text-[10px] font-black text-[#FFBE00] hover:underline uppercase tracking-wider">All</button>
-                </div>
-                <div className="space-y-3">
-                  {mockCollections.map((col, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs font-bold">
-                      <span onClick={() => showToast(`▸ ${col.name}`)} className="text-gray-700 hover:text-[#FFBE00] cursor-pointer transition-colors uppercase tracking-tight">{col.name}</span>
-                      <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-500 font-extrabold">{col.count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
+
+          {/* Tab Content Panels */}
+          {activeTab === 'Saved Leads' && (
+            <div className="bg-[#111] border border-zinc-900 rounded-xl overflow-hidden shadow-2xl">
+              <div className="px-6 py-5 border-b border-zinc-900">
+                <span className="text-white font-black text-sm uppercase tracking-wider">SAVED CONTRACTORS</span>
+                <span className="text-[#888] font-bold text-xs ml-3">({savedLeadsList.length} high-value leads)</span>
+              </div>
+              
+              {savedLeadsList.length > 0 ? (
+                <div className="overflow-x-auto w-full">
+                  <table className="w-full border-collapse text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-zinc-900 bg-zinc-950">
+                        <th className="p-4 w-12 text-center">
+                          <input type="checkbox" className="rounded bg-black border-zinc-800 text-[#FFBE00] focus:ring-[#FFBE00]" />
+                        </th>
+                        <th className="p-4 w-10"></th>
+                        <th className="p-4 font-black text-[#888] uppercase tracking-widest text-[10px]">BUSINESS NAME</th>
+                        <th className="p-4 font-black text-[#888] uppercase tracking-widest text-[10px]">CATEGORY</th>
+                        <th className="p-4 font-black text-[#888] uppercase tracking-widest text-[10px]">LOCATION</th>
+                        <th className="p-4 font-black text-[#888] uppercase tracking-widest text-[10px]">PHONE</th>
+                        <th className="p-4 font-black text-[#888] uppercase tracking-widest text-[10px]">SOURCE</th>
+                        <th className="p-4 font-black text-[#888] uppercase tracking-widest text-[10px] text-right">ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-900">
+                      {savedLeadsList.map((lead, idx) => (
+                        <tr 
+                          key={lead.id}
+                          className={'transition-all hover:bg-zinc-950/80 group border-l-2 border-l-transparent hover:border-l-[#FFBE00] ' + (idx % 2 === 0 ? 'bg-[#111]' : 'bg-[#141414]')}
+                        >
+                          <td className="p-4 text-center">
+                            <input type="checkbox" className="rounded bg-black border-zinc-800 text-[#FFBE00]" />
+                          </td>
+                          <td className="p-4">
+                            <button onClick={() => handleToggleSave(lead.id)} className="focus:outline-none">
+                              <Star size={18} className="fill-[#FFBE00] text-[#FFBE00] hover:scale-110 transition-transform" />
+                            </button>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-9 h-9 rounded bg-black border border-zinc-800 flex items-center justify-center font-black text-xs text-white shrink-0">
+                                {lead.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                              </div>
+                              <div>
+                                <span className="font-black text-white group-hover:text-[#FFBE00] transition-colors uppercase tracking-wide">
+                                  {lead.name}
+                                </span>
+                                <div className="flex items-center space-x-1.5 mt-1">
+                                  {lead.tags.slice(0, 2).map(t => (
+                                    <span key={t} className="px-1.5 py-0.5 bg-black border border-zinc-850 text-zinc-500 rounded text-[8px] font-black uppercase tracking-widest">
+                                      {t}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <span className="text-zinc-300 font-bold text-xs uppercase">{lead.category}</span>
+                          </td>
+                          <td className="p-4">
+                            <span className="text-zinc-300 font-bold text-xs uppercase">{lead.city}, {lead.state}</span>
+                          </td>
+                          <td className="p-4">
+                            <span className="text-zinc-300 font-bold text-xs uppercase">{lead.phone}</span>
+                          </td>
+                          <td className="p-4">
+                            <span className="text-xs font-black text-[#FFBE00] uppercase tracking-widest px-2.5 py-1 bg-[#FFBE00]/5 border border-[#FFBE00]/10 rounded">
+                              {lead.source}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <div className="flex items-center justify-end space-x-2">
+                              <Link href={'/lead/' + lead.id}>
+                                <button className="px-3 py-1.5 bg-transparent hover:bg-zinc-800 text-white text-[10px] font-black tracking-widest uppercase rounded border border-zinc-850 transition-all">
+                                  VIEW
+                                </button>
+                              </Link>
+                              <button 
+                                onClick={() => handleToggleSave(lead.id)}
+                                className="px-3 py-1.5 bg-zinc-950 hover:bg-zinc-900 text-red-500 text-[10px] font-black tracking-widest uppercase rounded border border-zinc-900 transition-all"
+                              >
+                                REMOVE
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-20 px-4">
+                  <span className="text-4xl">📂</span>
+                  <h3 className="text-lg font-black text-white uppercase tracking-wider mt-4">NO SAVED LEADS</h3>
+                  <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider mt-2">Bookmark records inside your dashboard search workspace to build your list.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab !== 'Saved Leads' && (
+            <div className="bg-[#111] border border-zinc-900 rounded-xl p-8 text-center">
+              <div className="text-3xl mb-4">⚙️</div>
+              <h3 className="text-lg font-black text-white uppercase tracking-wider">{activeTab} STORAGE ENGINE</h3>
+              <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider mt-2">Premium storage features are active on the premium core plan.</p>
+              
+              {activeTab === 'Notes' && (
+                <form onSubmit={handleAddNote} className="max-w-xl mx-auto mt-6 flex gap-3">
+                  <input 
+                    type="text"
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    placeholder="Add notes for saved lead accounts..."
+                    className="flex-1 bg-black border border-zinc-850 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#FFBE00]"
+                  />
+                  <button type="submit" className="bg-[#FFBE00] text-black font-black text-xs tracking-widest uppercase px-6 rounded-xl hover:brightness-110 transition-all">
+                    ADD
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
     </div>
