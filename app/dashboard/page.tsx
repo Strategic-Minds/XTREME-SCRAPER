@@ -16,14 +16,18 @@ export default function Dashboard() {
   const [sourceFilter, setSourceFilter] = React.useState('All');
   const [stateFilter, setStateFilter] = React.useState('AZ');
   const [cityFilter, setCityFilter] = React.useState('Phoenix');
+  const [showFilters, setShowFilters] = React.useState(false);
+  const [toast, setToast] = React.useState('');
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
 
   const handleToggleSave = (id: string) => {
     if (savedIds.includes(id)) {
       setSavedIds(savedIds.filter(item => item !== id));
-      alert(`Removed lead from memory!`);
+      showToast('✗ Removed from Memory');
     } else {
       setSavedIds([...savedIds, id]);
-      alert(`Saved lead to memory!`);
+      showToast('✓ Saved to Memory');
     }
   };
 
@@ -50,11 +54,17 @@ export default function Dashboard() {
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
-    alert('Exported mock data as JSON!');
+    showToast('✓ Exported as JSON');
   };
 
   return (
     <div className="flex bg-white min-h-screen">
+      {/* Toast */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-50 bg-black text-[#FFBE00] font-black text-xs tracking-widest uppercase px-6 py-3 rounded shadow-2xl border border-[#FFBE00]/30 animate-pulse">
+          {toast}
+        </div>
+      )}
       {/* Black Left Sidebar */}
       <Sidebar />
 
@@ -90,7 +100,7 @@ export default function Dashboard() {
                   <span className="text-[#FFBE00] text-sm">⚡</span>
                   <h2 className="text-lg font-black tracking-wider uppercase">START YOUR SEARCH</h2>
                 </div>
-                <button type="button" onClick={() => alert('Advanced Filters Clicked')} className="text-xs font-black text-[#FFBE00] hover:underline uppercase tracking-widest">
+                <button type="button" onClick={() => setShowFilters(f => !f)} className="text-xs font-black text-[#FFBE00] hover:underline uppercase tracking-widest">
                   Advanced Filters
                 </button>
               </div>
@@ -185,10 +195,10 @@ export default function Dashboard() {
                 <button onClick={handleExportData} className="px-4 py-2 border border-gray-200 hover:border-black text-black font-black text-xs tracking-wider uppercase rounded transition-all bg-white flex items-center space-x-2">
                   <span>Export JSON</span>
                 </button>
-                <button onClick={() => alert('Refreshed leads stream!')} className="px-4 py-2 border border-gray-200 hover:border-black text-black font-black text-xs tracking-wider uppercase rounded transition-all bg-white flex items-center space-x-2">
+                <button onClick={() => { setLeads(mockLeads); showToast('✓ Leads refreshed'); }} className="px-4 py-2 border border-gray-200 hover:border-black text-black font-black text-xs tracking-wider uppercase rounded transition-all bg-white flex items-center space-x-2">
                   <span>Sync Nodes</span>
                 </button>
-                <button onClick={() => alert('Bulk save success!')} className="px-5 py-2.5 bg-[#FFBE00] hover:bg-amber-500 text-black font-black text-xs tracking-widest uppercase rounded shadow-md transition-all flex items-center space-x-2">
+                <button onClick={() => { const allIds = leads.map(l => l.id); setSavedIds(allIds); showToast(`✓ ${allIds.length} leads saved to Memory`); }} className="px-5 py-2.5 bg-[#FFBE00] hover:bg-amber-500 text-black font-black text-xs tracking-widest uppercase rounded shadow-md transition-all flex items-center space-x-2">
                   <Plus size={14} className="stroke-[3]" />
                   <span>Bulk Save</span>
                 </button>
