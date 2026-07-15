@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import Sidebar from '../../components/Sidebar';
 import TopNav from '../../components/TopNav';
 import LeadTable from '../../components/LeadTable';
@@ -17,8 +18,29 @@ export default function Memory() {
   const handleToggleSave = (id: string) => {
     if (savedIds.includes(id)) {
       setSavedIds(savedIds.filter(item => item !== id));
+      alert(`Removed lead from memory!`);
     } else {
       setSavedIds([...savedIds, id]);
+      alert(`Saved lead to memory!`);
+    }
+  };
+
+  const handleExportData = () => {
+    const savedLeadsData = leads.filter(l => savedIds.includes(l.id));
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(savedLeadsData, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", "xtreme_scraper_saved_leads.json");
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    alert('Exported saved leads from memory as JSON!');
+  };
+
+  const handleClearMemory = () => {
+    if (confirm("Are you sure you want to clear all memory profiles?")) {
+      setSavedIds([]);
+      alert("Memory lists successfully cleared.");
     }
   };
 
@@ -39,36 +61,35 @@ export default function Memory() {
           {/* Header */}
           <div className="flex flex-col space-y-1.5 pb-6 border-b border-gray-100 relative">
             <div className="absolute right-0 top-0 opacity-5 pointer-events-none select-none">
-              <span className="text-8xl font-black text-[#F5A000]">XS</span>
+              <span className="text-8xl font-black text-[#FFBE00]">XS</span>
             </div>
-            <span className="text-[10px] font-black text-[#F5A000] tracking-widest uppercase">Saved Intelligence</span>
+            <span className="text-[10px] font-black text-[#FFBE00] tracking-widest uppercase">Saved Intelligence</span>
             <h1 className="text-3xl font-extrabold tracking-tight text-black uppercase flex items-center space-x-2">
               <span>MEMORY</span>
-              <Sparkles className="text-[#F5A000]" size={24} />
+              <Sparkles className="text-[#FFBE00]" size={24} />
             </h1>
+          </div>
+
+          {/* Navigation Links back to Dashboard */}
+          <div className="flex items-center space-x-4">
+            <Link href="/dashboard" className="text-xs font-black text-[#FFBE00] hover:underline uppercase tracking-widest flex items-center space-x-1">
+              <span>← Back to Dashboard</span>
+            </Link>
           </div>
 
           {/* Quick Metrics Pills */}
           <div className="flex flex-wrap gap-3">
             <div className="px-5 py-3 bg-zinc-950 text-white rounded-full flex items-center space-x-3 shadow-md border border-zinc-900">
-              <span className="text-[#F5A000] text-xs font-black">SAVED LEADS</span>
-              <span className="font-extrabold text-sm border-l border-zinc-800 pl-3">8,742</span>
+              <span className="text-[#FFBE00] text-xs font-black">SAVED LEADS</span>
+              <span className="font-extrabold text-sm border-l border-zinc-800 pl-3">{savedLeads.length}</span>
             </div>
             <div className="px-5 py-3 bg-zinc-950 text-white rounded-full flex items-center space-x-3 shadow-md border border-zinc-900">
-              <span className="text-[#F5A000] text-xs font-black">SAVED SEARCHES</span>
+              <span className="text-[#FFBE00] text-xs font-black">SAVED SEARCHES</span>
               <span className="font-extrabold text-sm border-l border-zinc-800 pl-3">124</span>
             </div>
             <div className="px-5 py-3 bg-zinc-950 text-white rounded-full flex items-center space-x-3 shadow-md border border-zinc-900">
-              <span className="text-[#F5A000] text-xs font-black">COLLECTIONS</span>
+              <span className="text-[#FFBE00] text-xs font-black">COLLECTIONS</span>
               <span className="font-extrabold text-sm border-l border-zinc-800 pl-3">28</span>
-            </div>
-            <div className="px-5 py-3 bg-zinc-950 text-white rounded-full flex items-center space-x-3 shadow-md border border-zinc-900">
-              <span className="text-[#F5A000] text-xs font-black">NOTES</span>
-              <span className="font-extrabold text-sm border-l border-zinc-800 pl-3">96</span>
-            </div>
-            <div className="px-5 py-3 bg-zinc-950 text-white rounded-full flex items-center space-x-3 shadow-md border border-zinc-900">
-              <span className="text-[#F5A000] text-xs font-black">TAGS</span>
-              <span className="font-extrabold text-sm border-l border-zinc-800 pl-3">156</span>
             </div>
           </div>
 
@@ -80,7 +101,7 @@ export default function Memory() {
                 onClick={() => setActiveTab(tab)}
                 className={`px-6 py-3.5 text-xs font-extrabold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all ${
                   activeTab === tab 
-                    ? 'border-[#F5A000] text-[#F5A000]' 
+                    ? 'border-[#FFBE00] text-[#FFBE00]' 
                     : 'border-transparent text-gray-400 hover:text-black hover:border-gray-200'
                 }`}
               >
@@ -97,7 +118,7 @@ export default function Memory() {
                 <input 
                   type="text" 
                   placeholder="Search saved list..." 
-                  className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-[#F5A000] flex-1 min-w-[200px]"
+                  className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-[#FFBE00] flex-1 min-w-[200px]"
                 />
                 
                 <select className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-black text-gray-500 hover:text-black uppercase tracking-wider bg-white cursor-pointer focus:outline-none">
@@ -106,26 +127,20 @@ export default function Memory() {
                 <select className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-black text-gray-500 hover:text-black uppercase tracking-wider bg-white cursor-pointer focus:outline-none">
                   <option>All Tags</option>
                 </select>
-                <select className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-black text-gray-500 hover:text-black uppercase tracking-wider bg-white cursor-pointer focus:outline-none">
-                  <option>All Sources</option>
-                </select>
-
-                <button className="flex items-center space-x-2 px-4 py-2 border border-gray-200 rounded-lg text-xs font-black text-gray-500 hover:text-black uppercase tracking-wider transition-all bg-white">
-                  <SlidersHorizontal size={12} />
-                  <span>Filters</span>
-                </button>
               </div>
 
               {/* Action Ribbon & Add Lead button */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <span className="text-sm font-black text-black uppercase tracking-tight">{savedLeads.length} saved leads</span>
-                  <button className="text-xs font-black text-gray-400 hover:text-black transition-colors uppercase tracking-widest">Export</button>
+                  <button onClick={handleExportData} className="text-xs font-black text-gray-400 hover:text-black transition-colors uppercase tracking-widest">Export JSON</button>
                   <span className="text-gray-300">|</span>
-                  <button className="text-xs font-black text-gray-400 hover:text-black transition-colors uppercase tracking-widest">Manage Collections</button>
+                  <button onClick={handleClearMemory} className="text-xs font-black text-red-500 hover:text-red-700 transition-colors uppercase tracking-widest">Clear All</button>
+                  <span className="text-gray-300">|</span>
+                  <button onClick={() => alert('Opening collections setup panel...')} className="text-xs font-black text-gray-400 hover:text-black transition-colors uppercase tracking-widest">Manage Collections</button>
                 </div>
 
-                <button className="flex items-center space-x-2 bg-[#F5A000] hover:bg-amber-500 text-black font-black text-xs tracking-widest uppercase px-5 py-2.5 rounded shadow-md transition-colors">
+                <button onClick={() => alert('Starting automated scrape pipeline...')} className="flex items-center space-x-2 bg-[#FFBE00] hover:bg-amber-500 text-black font-black text-xs tracking-widest uppercase px-5 py-2.5 rounded shadow-md transition-colors">
                   <Plus size={14} className="stroke-[3]" />
                   <span>Add Lead</span>
                 </button>
@@ -155,27 +170,16 @@ export default function Memory() {
               <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
                 <div className="flex items-center justify-between border-b border-gray-100 pb-2">
                   <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Top Collections</h3>
-                  <button className="text-[10px] font-black text-[#F5A000] hover:underline uppercase tracking-wider">All</button>
+                  <button onClick={() => alert('Displaying all collections...')} className="text-[10px] font-black text-[#FFBE00] hover:underline uppercase tracking-wider">All</button>
                 </div>
                 <div className="space-y-3">
                   {mockCollections.map((col, i) => (
                     <div key={i} className="flex items-center justify-between text-xs font-bold">
-                      <span className="text-gray-700 hover:text-[#F5A000] cursor-pointer transition-colors uppercase tracking-tight">{col.name}</span>
+                      <span onClick={() => alert(`Showing collection: ${col.name}`)} className="text-gray-700 hover:text-[#FFBE00] cursor-pointer transition-colors uppercase tracking-tight">{col.name}</span>
                       <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-500 font-extrabold">{col.count}</span>
                     </div>
                   ))}
                 </div>
-              </div>
-
-              {/* Security Shield Callout Box */}
-              <div className="bg-amber-50/20 border-2 border-[#F5A000]/10 rounded-2xl p-6 flex flex-col space-y-2 relative overflow-hidden">
-                <div className="flex items-center space-x-2 text-[#F5A000]">
-                  <span className="text-sm">🔒</span>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-black">Your data stays secure</span>
-                </div>
-                <p className="text-[11px] text-gray-500 font-bold leading-normal">
-                  Our databases are fully compliant. Your records are encrypted end-to-end and stored in a secured isolated cluster.
-                </p>
               </div>
             </div>
           </div>
