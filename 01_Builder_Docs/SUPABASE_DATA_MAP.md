@@ -18,8 +18,13 @@ Active project observed: `azajysheebfhyzoyplpf` (`supabase-blue-zebra`). This is
 | `cron_heartbeats` | Scheduler health | Exists, 0 rows | Not proven | Disabled | Service-role-only | High |
 | `operator_decisions` | Human approvals | Exists, 14 rows | Not proven | Disabled | Operator-only | Critical |
 | `kill_switches` | Emergency controls | Exists, 4 rows | Not proven | Disabled | Operator/service only | Critical |
-| `xps_leads` | Scraper lead output | Exists, 0 rows; repo writes by REST | Partial code path | Disabled | Tenant-scoped leads | Critical |
+| `xps_leads` | Current scraper write target | Exists, 0 rows; `/api/scrape` writes by REST | Partial code path | Disabled | Tenant-scoped leads | Critical |
+| `leads` | Current UI, stats and health read target | Exists; `/api/leads`, `/api/stats` and `/api/health` query it | Active legacy/read path | Enabled in observed project, but canonical mapping unproven | Legacy compatibility until routes are migrated | High; drift and data-consistency risk |
+
+## Current drift
+
+The scraper writes to `xps_leads`, while UI and health routes still read `leads`. Until those routes are migrated or the data is synchronized through an approved design, counts and displayed records may not represent current scraper output.
 
 ## Release rule
 
-Do not execute SQL or connect production until ownership, policies, service roles, regression tests and rollback are approved. Enabling RLS without matching policies may break all current access.
+Do not execute SQL or connect production until ownership, policies, service roles, table-drift remediation, regression tests and rollback are approved. Enabling RLS without matching policies may break current access.
