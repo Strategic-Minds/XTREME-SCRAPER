@@ -34,7 +34,6 @@ export default function AuthPage() {
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    alert(`Success! Logged in as ${email} on the ${selectedPlan} plan (${billingCycle} billing). Redirecting you to the workspace...`);
     window.location.href = '/dashboard';
   };
 
@@ -158,7 +157,7 @@ export default function AuthPage() {
               </div>
 
               {/* Google Button */}
-              <button type="button" onClick={() => alert('Redirecting to Google OAuth authentication window...')} className="w-full flex items-center justify-center space-x-2 py-3.5 border border-zinc-800 bg-transparent hover:bg-zinc-900 text-white text-xs font-extrabold tracking-widest uppercase rounded-lg transition-all">
+              <button type="button" onClick={() => { window.location.href = '/dashboard'; }} className="w-full flex items-center justify-center space-x-2 py-3.5 border border-zinc-800 bg-transparent hover:bg-zinc-900 text-white text-xs font-extrabold tracking-widest uppercase rounded-lg transition-all">
                 <span className="text-red-500 font-extrabold">G</span>
                 <span>CONTINUE WITH GOOGLE</span>
               </button>
