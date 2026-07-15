@@ -16,6 +16,8 @@ interface PageProps {
 
 export default function LeadDetail({ params }: PageProps) {
   const router = useRouter();
+  const [toast, setToast] = React.useState('');
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
   const leadId = params.id;
   const lead = mockLeads.find(l => l.id === leadId) || mockLeads[0];
 
@@ -55,13 +57,13 @@ export default function LeadDetail({ params }: PageProps) {
   };
 
   const handleSaveNotes = () => {
-    alert('Internal private scrape notes saved successfully!');
+    showToast('Internal private scrape notes saved successfully!');
   };
 
   const handleToggleSave = () => {
     const nextSaved = !isSaved;
     setIsSaved(nextSaved);
-    alert(nextSaved ? 'Saved to memory!' : 'Removed from memory!');
+    showToast(nextSaved ? 'Saved to memory!' : 'Removed from memory!');
   };
 
   const handleDownloadProfile = () => {
@@ -72,12 +74,18 @@ export default function LeadDetail({ params }: PageProps) {
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
-    alert('Profile downloaded as JSON!');
+    showToast('Profile downloaded as JSON!');
   };
 
   const otherLeads = mockLeads.filter(l => l.id !== lead.id).slice(0, 3);
 
   return (
+    <div className="relative">
+      {toast && (
+        <div className="fixed top-6 right-6 z-50 bg-black text-[#FFBE00] font-black text-xs tracking-widest uppercase px-6 py-3 rounded shadow-2xl border border-[#FFBE00]/30 animate-pulse">
+          {toast}
+        </div>
+      )}
     <div className="flex bg-white min-h-screen">
       {/* Sidebar */}
       <Sidebar />
@@ -266,3 +274,4 @@ export default function LeadDetail({ params }: PageProps) {
     </div>
   );
 }
+    </div>
