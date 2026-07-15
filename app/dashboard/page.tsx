@@ -14,6 +14,8 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [categoryFilter, setCategoryFilter] = React.useState('All');
   const [sourceFilter, setSourceFilter] = React.useState('All');
+  const [stateFilter, setStateFilter] = React.useState('AZ');
+  const [cityFilter, setCityFilter] = React.useState('Phoenix');
 
   const handleToggleSave = (id: string) => {
     if (savedIds.includes(id)) {
@@ -80,15 +82,36 @@ export default function Dashboard() {
               </div>
 
               {/* Form Input Row */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col justify-center">
-                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">LOCATION</label>
-                  <select className="bg-transparent text-white font-extrabold text-sm focus:outline-none appearance-none cursor-pointer">
-                    <option className="bg-black text-white">Phoenix, AZ</option>
-                    <option className="bg-black text-white">Tempe, AZ</option>
-                    <option className="bg-black text-white">Mesa, AZ</option>
-                    <option className="bg-black text-white">Scottsdale, AZ</option>
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">STATE</label>
+                  <select
+                    value={stateFilter}
+                    onChange={(e) => setStateFilter(e.target.value)}
+                    className="bg-transparent text-white font-extrabold text-sm focus:outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="AZ" className="bg-black text-white">AZ — Arizona</option>
+                    <option value="CA" className="bg-black text-white">CA — California</option>
+                    <option value="TX" className="bg-black text-white">TX — Texas</option>
+                    <option value="FL" className="bg-black text-white">FL — Florida</option>
+                    <option value="NV" className="bg-black text-white">NV — Nevada</option>
+                    <option value="CO" className="bg-black text-white">CO — Colorado</option>
+                    <option value="GA" className="bg-black text-white">GA — Georgia</option>
+                    <option value="WA" className="bg-black text-white">WA — Washington</option>
+                    <option value="IL" className="bg-black text-white">IL — Illinois</option>
+                    <option value="NY" className="bg-black text-white">NY — New York</option>
                   </select>
+                </div>
+
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col justify-center">
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">CITY</label>
+                  <input
+                    type="text"
+                    value={cityFilter}
+                    onChange={(e) => setCityFilter(e.target.value)}
+                    placeholder="e.g. Phoenix"
+                    className="bg-transparent text-white font-extrabold text-sm focus:outline-none placeholder:text-zinc-600"
+                  />
                 </div>
 
                 <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col justify-center">
