@@ -3,10 +3,9 @@
 import React from 'react';
 import Link from 'next/link';
 import TopNav from '../../components/TopNav';
-import Logo from '../../components/Logo';
 
 export default function AuthPage() {
-  const [activeTab, setActiveTab] = React.useState<'signin' | 'create'>('Create Account');
+  const [activeTab, setActiveTab] = React.useState<'Sign In' | 'Create Account'>('Create Account');
   const [selectedPlan, setSelectedPlan] = React.useState<'Starter' | 'Pro' | 'Agency'>('Pro');
   const [billingCycle, setBillingCycle] = React.useState<'monthly' | 'yearly'>('monthly');
 
@@ -33,6 +32,12 @@ export default function AuthPage() {
     return '5,000';
   };
 
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    alert(`Success! Logged in as ${email} on the ${selectedPlan} plan (${billingCycle} billing). Redirecting you to the workspace...`);
+    window.location.href = '/dashboard';
+  };
+
   return (
     <main className="min-h-screen bg-white text-black flex flex-col">
       <TopNav />
@@ -40,14 +45,21 @@ export default function AuthPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 flex-1 w-full max-w-[1440px] mx-auto">
         {/* Left Side: Auth Forms & Core Mission Statements (Black Background) */}
         <section className="bg-black text-white p-8 md:p-16 flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(#F5A000_1px,transparent_1px)] [background-size:20px_20px] opacity-10" />
+          <div className="absolute inset-0 bg-[radial-gradient(#FFBE00_1px,transparent_1px)] [background-size:20px_20px] opacity-10" />
 
           {/* Core Branding/Message */}
           <div className="relative z-10 space-y-6 max-w-lg mb-12">
-            <Logo />
+            {/* FULL BADGE LOGO */}
+            <img 
+              src="https://media.base44.com/images/public/69db047707a15d69135e3de9/53ab5dec5_ChatGPTImageJul14202610_12_56PM1.png" 
+              style={{ height: '120px' }} 
+              className="object-contain" 
+              alt="XTREME SCRAPER Full Badge" 
+            />
+
             <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-none uppercase pt-6">
               UNLOCK THE POWER TO FIND.<br />
-              <span className="text-[#F5A000] italic">SAVE. GROW.</span>
+              <span className="text-[#FFBE00] italic">SAVE. GROW.</span>
             </h1>
             <p className="text-gray-400 font-bold text-sm leading-relaxed">
               Start building verified pipelines of local flooring contracts, general construction leads, and commercial projects in under 30 seconds.
@@ -56,13 +68,13 @@ export default function AuthPage() {
             {/* Core Trust Checklist */}
             <div className="space-y-3 pt-4 text-xs font-black tracking-wider text-gray-300">
               <div className="flex items-center space-x-2">
-                <span className="text-[#F5A000]">✓</span> <span>124K+ LEADS SCAPEABLE TODAY</span>
+                <span className="text-[#FFBE00]">✓</span> <span>124K+ LEADS SCAPEABLE TODAY</span>
               </div>
               <div className="flex items-center space-x-2">
-                <span className="text-[#F5A000]">✓</span> <span>GOOGLE, YELP & YELLOW PAGES CONNECTED</span>
+                <span className="text-[#FFBE00]">✓</span> <span>GOOGLE, YELP & YELLOW PAGES CONNECTED</span>
               </div>
               <div className="flex items-center space-x-2">
-                <span className="text-[#F5A000]">✓</span> <span>EXPORT UNLIMITED CLEAN CSV FILES</span>
+                <span className="text-[#FFBE00]">✓</span> <span>EXPORT UNLIMITED CLEAN CSV FILES</span>
               </div>
             </div>
           </div>
@@ -74,10 +86,11 @@ export default function AuthPage() {
               {['Sign In', 'Create Account'].map((tab) => (
                 <button
                   key={tab}
+                  type="button"
                   onClick={() => setActiveTab(tab as any)}
                   className={`flex-1 pb-3 text-xs font-black uppercase tracking-wider transition-all ${
                     activeTab === tab 
-                      ? 'border-b-2 border-[#F5A000] text-[#F5A000]' 
+                      ? 'border-b-2 border-[#FFBE00] text-[#FFBE00]' 
                       : 'text-zinc-500 hover:text-white'
                   }`}
                 >
@@ -87,7 +100,7 @@ export default function AuthPage() {
             </div>
 
             {/* Inputs Block */}
-            <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+            <form onSubmit={handleFormSubmit} className="space-y-4">
               {activeTab === 'Create Account' && (
                 <div>
                   <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1.5">Full Name</label>
@@ -95,7 +108,7 @@ export default function AuthPage() {
                     type="text" 
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#F5A000]"
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#FFBE00]"
                   />
                 </div>
               )}
@@ -106,7 +119,7 @@ export default function AuthPage() {
                   type="email" 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#F5A000]"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#FFBE00]"
                 />
               </div>
 
@@ -116,7 +129,7 @@ export default function AuthPage() {
                   type="password" 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#F5A000]"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#FFBE00]"
                 />
               </div>
 
@@ -127,17 +140,15 @@ export default function AuthPage() {
                     type="password" 
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#F5A000]"
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#FFBE00]"
                   />
                 </div>
               )}
 
               {/* Core CTA */}
-              <Link href="/dashboard" className="block w-full pt-2">
-                <button className="w-full py-3.5 bg-[#F5A000] hover:bg-amber-500 text-black text-xs font-extrabold tracking-widest uppercase rounded-lg transition-all shadow-md">
-                  {activeTab === 'Create Account' ? 'CREATE ACCOUNT' : 'SIGN IN TO XS'}
-                </button>
-              </Link>
+              <button type="submit" className="w-full py-3.5 bg-[#FFBE00] hover:bg-amber-500 text-black text-xs font-extrabold tracking-widest uppercase rounded-lg transition-all shadow-md mt-2">
+                {activeTab === 'Create Account' ? 'CREATE ACCOUNT & START' : 'SIGN IN TO WORKSPACE'}
+              </button>
 
               {/* Divider */}
               <div className="flex items-center space-x-3 py-2">
@@ -147,7 +158,7 @@ export default function AuthPage() {
               </div>
 
               {/* Google Button */}
-              <button className="w-full flex items-center justify-center space-x-2 py-3.5 border border-zinc-800 bg-transparent hover:bg-zinc-900 text-white text-xs font-extrabold tracking-widest uppercase rounded-lg transition-all">
+              <button type="button" onClick={() => alert('Redirecting to Google OAuth authentication window...')} className="w-full flex items-center justify-center space-x-2 py-3.5 border border-zinc-800 bg-transparent hover:bg-zinc-900 text-white text-xs font-extrabold tracking-widest uppercase rounded-lg transition-all">
                 <span className="text-red-500 font-extrabold">G</span>
                 <span>CONTINUE WITH GOOGLE</span>
               </button>
@@ -172,7 +183,7 @@ export default function AuthPage() {
                 <button 
                   onClick={() => setBillingCycle('monthly')}
                   className={`px-3 py-1 text-[10px] font-black uppercase rounded-full tracking-wider transition-all ${
-                    billingCycle === 'monthly' ? 'bg-black text-[#F5A000]' : 'text-gray-500 hover:text-black'
+                    billingCycle === 'monthly' ? 'bg-black text-[#FFBE00]' : 'text-gray-500 hover:text-black'
                   }`}
                 >
                   Monthly
@@ -180,10 +191,10 @@ export default function AuthPage() {
                 <button 
                   onClick={() => setBillingCycle('yearly')}
                   className={`px-3 py-1 text-[10px] font-black uppercase rounded-full tracking-wider transition-all ${
-                    billingCycle === 'yearly' ? 'bg-black text-[#F5A000]' : 'text-gray-500 hover:text-black'
+                    billingCycle === 'yearly' ? 'bg-black text-[#FFBE00]' : 'text-gray-500 hover:text-black'
                   }`}
                 >
-                  Yearly <span className="text-[#F5A000] text-[9px] font-black ml-0.5">-20%</span>
+                  Yearly <span className="text-[#FFBE00] text-[9px] font-black ml-0.5">-20%</span>
                 </button>
               </div>
             </div>
@@ -201,145 +212,27 @@ export default function AuthPage() {
                     onClick={() => setSelectedPlan(plan as any)}
                     className={`rounded-xl p-5 border text-left flex flex-col justify-between h-40 relative transition-all ${
                       isSelected 
-                        ? 'border-2 border-[#F5A000] bg-amber-50/5 shadow-md shadow-[#F5A000]/5' 
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
+                        ? 'border-[#FFBE00] bg-[#FFBE00]/5 ring-2 ring-[#FFBE00]' 
+                        : 'border-gray-200 hover:border-gray-400 bg-white'
                     }`}
                   >
-                    {plan === 'Pro' && (
-                      <span className="absolute -top-2.5 right-4 px-2 py-0.5 bg-[#F5A000] text-black text-[8px] font-black tracking-widest uppercase rounded">
-                        MOST POPULAR
-                      </span>
+                    {isSelected && (
+                      <span className="absolute top-3 right-3 text-[#FFBE00] text-xs font-black">✓ Selected</span>
                     )}
-
                     <div>
-                      <span className="block font-black text-xs uppercase tracking-wider text-black">{plan}</span>
-                      <span className="block text-gray-400 font-bold text-[11px] mt-1">{leads} leads / mo</span>
+                      <span className="text-xs font-black text-gray-400 uppercase tracking-widest">{plan}</span>
+                      <h3 className="text-2xl font-extrabold text-black pt-1">
+                        ${price}<span className="text-[11px] font-bold text-gray-400">/mo</span>
+                      </h3>
                     </div>
-
-                    <div className="flex items-baseline space-x-1 pt-4">
-                      <span className="text-2xl font-black text-black">${price}</span>
-                      <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">/ mo</span>
-                    </div>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider leading-relaxed">
+                      {leads} verified leads per billing node cycle.
+                    </p>
                   </button>
                 );
               })}
             </div>
           </div>
-
-          {/* Section 2 Heading */}
-          <div className="space-y-6">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-              <h2 className="text-lg font-black text-black uppercase tracking-tight">2. Payment Details</h2>
-              
-              {/* Payment Card Logos */}
-              <div className="flex items-center space-x-1.5 text-gray-400 text-sm font-black">
-                <span>💳</span>
-                <span className="text-[10px] uppercase tracking-wider">Visa / MC / Amex / Disc</span>
-              </div>
-            </div>
-
-            {/* Fake Payment Form */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1.5">Card Number</label>
-                <div className="relative">
-                  <input 
-                    type="text" 
-                    value="4111 2222 3333 4444" 
-                    readOnly
-                    className="w-full border border-gray-200 rounded-lg p-3 text-xs font-bold text-black bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#F5A000]"
-                  />
-                  <span className="absolute right-3 top-3.5 text-xs">🔒</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1.5">Expiry Date</label>
-                  <input 
-                    type="text" 
-                    value="12 / 29" 
-                    readOnly
-                    className="w-full border border-gray-200 rounded-lg p-3 text-xs font-bold text-black bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#F5A000]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1.5">CVC</label>
-                  <input 
-                    type="text" 
-                    value="•••" 
-                    readOnly
-                    className="w-full border border-gray-200 rounded-lg p-3 text-xs font-bold text-black bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#F5A000]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-1">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1.5">Cardholder Name</label>
-                  <input 
-                    type="text" 
-                    value="Alex Davidson" 
-                    readOnly
-                    className="w-full border border-gray-200 rounded-lg p-3 text-xs font-bold text-black bg-gray-50 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1.5">Country</label>
-                  <input 
-                    type="text" 
-                    value="United States" 
-                    readOnly
-                    className="w-full border border-gray-200 rounded-lg p-3 text-xs font-bold text-black bg-gray-50 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1.5">ZIP Code</label>
-                  <input 
-                    type="text" 
-                    value="85015" 
-                    readOnly
-                    className="w-full border border-gray-200 rounded-lg p-3 text-xs font-bold text-black bg-gray-50 focus:outline-none"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Checkout Order Summary */}
-          <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 space-y-4">
-            <h3 className="text-xs font-black text-black uppercase tracking-widest">Order Summary</h3>
-            
-            <div className="space-y-2 text-xs font-bold text-gray-600">
-              <div className="flex justify-between">
-                <span>{selectedPlan} Plan ({billingCycle})</span>
-                <span className="text-black font-black">${getPrice(selectedPlan)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>VAT / Tax</span>
-                <span className="text-black font-black">$0.00</span>
-              </div>
-              
-              <div className="flex justify-between border-t border-gray-200 pt-3 text-sm font-black">
-                <span className="text-black uppercase">TOTAL DUE TODAY</span>
-                <span className="text-[#F5A000]">${getPrice(selectedPlan)}.00</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Subscribe Submit button */}
-          <div className="space-y-3 pt-4">
-            <Link href="/dashboard" className="block w-full">
-              <button className="w-full py-4 bg-[#F5A000] hover:bg-amber-500 text-black text-xs font-extrabold tracking-widest uppercase rounded-lg transition-all shadow-lg flex items-center justify-center space-x-2">
-                <span>🔒 START SUBSCRIPTION</span>
-              </button>
-            </Link>
-
-            <span className="block text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              100% Secure Checkout. Your payment is protected.
-            </span>
-          </div>
-
         </section>
       </div>
     </main>
