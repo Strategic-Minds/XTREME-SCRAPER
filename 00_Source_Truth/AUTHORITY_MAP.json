@@ -1,0 +1,21 @@
+{
+  "system": "Xtreme Scraper",
+  "canonical_repository": "Strategic-Minds/XTREME-SCRAPER",
+  "default_branch": "main",
+  "working_branch": "auto-builder/xtreme-scraper-system-alignment-001",
+  "verified_main_head_at_discovery": "e102df2404b402e9289430bd33751878cac4e83f",
+  "verified_at": "2026-07-15T12:52:56Z",
+  "vercel_project": "xtreme-scraper",
+  "vercel_project_id": "prj_3Wug8Zppqp4NjRKsRxFxK5sAhBeu",
+  "parent_control_plane": "Strategic Minds AUTO BUILDER OS",
+  "system_role": "Intelligence Acquisition and Lead Discovery Subsystem",
+  "production_locked": true,
+  "database_mutations_authorized": false,
+  "deployment_mutations_authorized": false,
+  "evidence": {
+    "github": "live connector inspection",
+    "vercel": "live connector inspection",
+    "supabase": "read-only project and table inspection",
+    "drive": "read-only search"
+  }
+}
