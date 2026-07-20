@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { multiKeywordSweep, multiCitySweep, googleMapsSearch, scrapingBeeScrape, dedupeLeads, saveLeads, AZ_CITIES, XPS_KEYWORDS } from '@/lib/scraper-engine'
+import { maxKeywordSweep, multiCitySweep, googleMapsSearch, dedupeLeads, saveLeads, AZ_CITIES, XPS_KEYWORDS } from '@/lib/scraper-engine'
 
 export const dynamic    = 'force-dynamic'
 export const maxDuration = 120
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
   if (action === 'run_discovery') {
     // All 8 keywords for one city via GM
-    leads = await multiKeywordSweep(city, state)
+    leads = await maxKeywordSweep(city, state)
     method = 'multi_keyword_google_maps'
   } else if (action === 'multi_city_sweep') {
     const cities  = config.cities || AZ_CITIES
@@ -52,8 +52,8 @@ export async function POST(req: NextRequest) {
     method = 'multi_city_google_maps'
   } else if (action === 'keyword_expansion') {
     // GM + ScrapingBee for one city
-    const gmLeads = await multiKeywordSweep(city, state)
-    const sbLeads = await scrapingBeeScrape(industry, city, state)
+    const gmLeads = await maxKeywordSweep(city, state)
+    const sbLeads = await (industry, city, state)
     leads  = dedupeLeads([...gmLeads, ...sbLeads])
     method = 'keyword_expansion_gm_sb'
   } else if (action === 'full_state_max') {
