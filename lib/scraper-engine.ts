@@ -400,3 +400,6 @@ export async function saveLeads(leads: Lead[], meta: { industry: string; locatio
     return { saved: r.ok ? leads.length : 0 }
   } catch (e) { console.error('[saveLeads]', e); return { saved: 0 } }
 }
+
+// backward-compat alias
+export const multiKeywordSweep = maxKeywordSweep
