@@ -3,20 +3,29 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const gmOk  = !!process.env.GOOGLE_MAPS_API_KEY
-  const sbOk  = !!process.env.SCRAPINGBEE_API_KEY
-  const apOk  = !!process.env.APOLLO_API_KEY_2
-  const bwOk  = !!(process.env.BROWSER_WORKER_TOKEN || process.env.BROWSER_WORKER_SECRET)
-  const aiOk  = !!process.env.AI_GATEWAY_API_KEY
+  // Check ScrapingBee credits dynamically
+  const sbKey     = process.env.SCRAPINGBEE_API_KEY || ''
+  let sbStatus    = sbKey ? 'checking' : 'not_configured'
+  let sbCredits   = 0
+  if (sbKey) {
+    try {
+      const r = await fetch(`https://app.scrapingbee.com/api/v1/usage?api_key=${sbKey}`, { signal: AbortSignal.timeout(5000) })
+      const d = await r.json()
+      sbCredits = d.max_api_credit - d.used_api_credit
+      sbStatus  = sbCredits > 0 ? 'active' : 'exhausted'
+    } catch { sbStatus = 'error' }
+  }
 
   return NextResponse.json({
     sources: [
-      { id: 'google_maps',       name: 'Google Maps Places', status: gmOk ? 'active' : 'not_configured', quality: 'verified', avg_leads_per_query: 60,  notes: '3 pages × 20 results, real ratings + addresses' },
-      { id: 'scrapingbee_yp',    name: 'ScrapingBee + Yellow Pages', status: sbOk ? 'active' : 'not_configured', quality: 'real_html', avg_leads_per_query: 25, notes: 'JS render, premium proxy, Cloudflare bypass' },
-      { id: 'scrapingbee_yelp',  name: 'ScrapingBee + Yelp', status: sbOk ? 'active' : 'not_configured', quality: 'real_html', avg_leads_per_query: 15, notes: 'JS render, real reviews + phones' },
-      { id: 'apollo',            name: 'Apollo.io', status: apOk ? 'active' : 'not_configured', quality: 'verified_email', avg_leads_per_query: 25, notes: 'Verified emails + direct dials from 73M+ database' },
-      { id: 'browser_worker',    name: 'BrowserWorker / Browserbase', status: bwOk ? 'active' : 'not_configured', quality: 'js_rendered', avg_leads_per_query: 15, notes: 'Real Chromium, site validation + reachability' },
-      { id: 'ai_gateway',        name: 'AI Gateway (fallback only)', status: aiOk ? 'active' : 'not_configured', quality: 'ai_generated', avg_leads_per_query: 12, notes: 'GPT-4o-mini fallback when real sources return <3' },
+      { id: 'google_maps',    name: 'Google Maps Places API', status: process.env.GOOGLE_MAPS_API_KEY ? 'active' : 'not_configured', cost: 'Free to 10k/mo then $0.032/req',  key: 'GOOGLE_MAPS_API_KEY',  quality: 'verified_rated',  avg_leads: 20, notes: '8 keywords × 20 = ~100 unique/city' },
+      { id: 'yellowpages',    name: 'Yellow Pages (direct)',  status: 'active',                                                        cost: '100% FREE — no key needed',      key: 'none',                 quality: 'real_html',       avg_leads: 30, notes: 'Direct HTML parse, 30 names + phones per search' },
+      { id: 'yelp',           name: 'Yelp Fusion API',        status: process.env.YELP_API_KEY ? 'active' : 'not_configured',          cost: 'Free 500 calls/day',             key: 'YELP_API_KEY',         quality: 'verified_rated',  avg_leads: 20, notes: 'Free signup at yelp.com/developers (5 min)' },
+      { id: 'bing_maps',      name: 'Bing Maps Local Search', status: process.env.BING_MAPS_KEY ? 'active' : 'not_configured',         cost: 'Free 125,000/year',              key: 'BING_MAPS_KEY',        quality: 'verified',        avg_leads: 25, notes: 'Free signup at bingmapsportal.com' },
+      { id: 'apollo',         name: 'Apollo.io',              status: process.env.APOLLO_API_KEY_2 ? 'active' : 'not_configured',      cost: 'Free tier / paid plans',         key: 'APOLLO_API_KEY_2',     quality: 'verified_email',  avg_leads: 25, notes: 'Verified emails + direct dials from 73M+ DB' },
+      { id: 'scrapingbee_yp', name: 'ScrapingBee + YP/Yelp', status: sbStatus,                                                        cost: '$49 for 10k credits',            key: 'SCRAPINGBEE_API_KEY',  quality: 'js_rendered',     avg_leads: 40, credits_remaining: sbCredits, notes: sbStatus === 'exhausted' ? `Exhausted (${sbCredits} remaining) — top up at app.scrapingbee.com` : 'Cloudflare bypass + JS render' },
+      { id: 'browser_worker', name: 'BrowserWorker Chromium', status: (process.env.BROWSER_WORKER_TOKEN || process.env.BROWSER_WORKER_SECRET) ? 'active' : 'not_configured', cost: 'Free (self-hosted)',  key: 'BROWSER_WORKER_SECRET', quality: 'js_rendered',    avg_leads: 15, notes: 'Site validation + reachability testing' },
+      { id: 'ai_gateway',     name: 'AI Gateway (fallback)',  status: process.env.AI_GATEWAY_API_KEY ? 'active' : 'not_configured',    cost: 'Per-token (fallback only)',      key: 'AI_GATEWAY_API_KEY',   quality: 'ai_generated',    avg_leads: 12, notes: 'Only fires when real sources return <5 leads' },
     ],
     keywords: [
       'epoxy flooring','concrete coating','garage floor coating',
@@ -29,16 +38,14 @@ export async function GET() {
       'Flagstaff','Yuma','Prescott','Avondale','Goodyear',
     ],
     modes: {
-      quick: { description: 'Google Maps single query', time_estimate: '5-10s',  leads_estimate: '20-60'  },
-      deep:  { description: 'Google Maps all keywords + ScrapingBee', time_estimate: '30-60s', leads_estimate: '100-300' },
-      max:   { description: 'All sources + Apollo verified emails', time_estimate: '60-90s', leads_estimate: '200-500' },
+      quick: { description: 'Google Maps + Yellow Pages direct', time: '~10s', leads: '20-50' },
+      deep:  { description: '8 GM keywords + YP + Yelp + Bing',  time: '~30s', leads: '80-150' },
+      max:   { description: 'All sources + Apollo emails',        time: '~60s', leads: '120-200' },
     },
-    sweep: {
-      description: 'Multi-city sweep via /api/sweep',
-      cities: 15, leads_per_city: 20,
-      max_theoretical: 15 * 20,
-    },
-    max_theoretical_leads_per_full_run: 8 * 60 + 40 + 25,
-    all_active: gmOk && sbOk && apOk && bwOk,
+    to_unlock_more: [
+      { source: 'yelp',     action: 'Get free key at yelp.com/developers',     adds: '+20 leads/run', time: '5 minutes' },
+      { source: 'bing',     action: 'Get free key at bingmapsportal.com',       adds: '+25 leads/run', time: '5 minutes' },
+      { source: 'scrapingbee', action: 'Top up at app.scrapingbee.com ($49/10k)', adds: '+40 leads/run', time: '2 minutes' },
+    ],
   })
 }
