@@ -1,7 +1,7 @@
 /**
- * XTREME-SCRAPER Engine v2.1 — Max Free Sources
- * Google Maps + Yellow Pages (direct) + Yelp Fusion + OSM + Bing Maps + AI fallback
- * No ScrapingBee required — all sources free
+ * XTREME-SCRAPER Engine v3.0 — Maximum Output
+ * Sources: Google Maps (16 keywords + 4 type filters) + BBB + Yellow Pages + Yelp + Bing + Apollo + AI fallback
+ * Zero new signups required for core operation
  */
 
 export interface Lead {
@@ -12,10 +12,12 @@ export interface Lead {
   city?: string
   state?: string
   rating?: number
+  review_count?: number
   address?: string
   category?: string
   source_url?: string
   source?: string
+  place_id?: string
 }
 
 const GM_KEY   = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY || ''
@@ -29,32 +31,68 @@ const SB_RKEY  = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLI
 const YELP_KEY = process.env.YELP_API_KEY || ''
 const BING_KEY = process.env.BING_MAPS_KEY || ''
 
+// ── MAXIMUM KEYWORD SUITE (16 keywords) ──────────────────────────────────────
 export const XPS_KEYWORDS = [
-  'epoxy flooring','concrete coating','garage floor coating',
-  'polished concrete','floor coating contractor','decorative concrete',
-  'epoxy garage floor','floor epoxy contractor',
+  // Primary — direct epoxy/coating
+  'epoxy flooring',
+  'epoxy floor coating',
+  'garage floor epoxy',
+  'epoxy garage floor',
+  // Concrete / polishing
+  'concrete coating',
+  'polished concrete',
+  'concrete polishing',
+  'decorative concrete',
+  // Broader coating / flooring
+  'floor coating contractor',
+  'garage floor coating',
+  'concrete floor coating',
+  'floor epoxy contractor',
+  // Adjacent / competitive
+  'polyaspartic floor coating',
+  'metallic epoxy floor',
+  'industrial floor coating',
+  'commercial floor coating',
+]
+
+// ── GOOGLE MAPS TYPE FILTERS (4 additional sweeps) ───────────────────────────
+export const GM_TYPE_FILTERS = [
+  'floor_covering_store',
+  'general_contractor',
+  'home_improvement_store',
+  'painter',
 ]
 
 export const AZ_CITIES = [
   'Phoenix','Scottsdale','Mesa','Tempe','Chandler',
   'Gilbert','Glendale','Peoria','Surprise','Tucson',
   'Flagstaff','Yuma','Prescott','Avondale','Goodyear',
+  'Maricopa','Casa Grande','Queen Creek','Anthem','Cave Creek',
 ]
 
-// ── Dedup ────────────────────────────────────────────────────────────────────
+// ── Dedup ─────────────────────────────────────────────────────────────────────
 export function dedupeLeads(leads: Lead[]): Lead[] {
   const seen = new Map<string, Lead>()
   for (const l of leads) {
     const key = l.company_name.toLowerCase().replace(/[^a-z0-9]/g, '')
-    if (!seen.has(key) || (l.phone && !seen.get(key)!.phone)) seen.set(key, l)
+    if (!seen.has(key)) {
+      seen.set(key, l)
+    } else {
+      // Merge — keep richer record
+      const existing = seen.get(key)!
+      if (!existing.phone && l.phone) existing.phone = l.phone
+      if (!existing.email && l.email) existing.email = l.email
+      if (!existing.website && l.website) existing.website = l.website
+      if (!existing.rating && l.rating) existing.rating = l.rating
+    }
   }
   return [...seen.values()]
 }
 
-// ── SOURCE 1: Google Maps Places (FREE up to 10k/month) ───────────────────
-interface GMResult { name: string; place_id: string; rating?: number; formatted_address?: string; vicinity?: string }
+// ── SOURCE 1: Google Maps — single keyword ────────────────────────────────────
+interface GMResult { name: string; place_id: string; rating?: number; user_ratings_total?: number; formatted_address?: string; vicinity?: string }
 
-async function gmFetch(url: string): Promise<{ results: GMResult[]; next_page_token?: string; status?: string }> {
+async function gmFetch(url: string): Promise<{ results: GMResult[]; status?: string }> {
   try {
     const r = await fetch(url, { signal: AbortSignal.timeout(12000) })
     if (!r.ok) return { results: [] }
@@ -63,7 +101,7 @@ async function gmFetch(url: string): Promise<{ results: GMResult[]; next_page_to
 }
 
 async function gmDetails(place_id: string): Promise<{ formatted_phone_number?: string; website?: string }> {
-  if (!place_id) return {}
+  if (!place_id || !GM_KEY) return {}
   try {
     const r = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&fields=formatted_phone_number,website&key=${GM_KEY}`, { signal: AbortSignal.timeout(8000) })
     const d = await r.json()
@@ -78,46 +116,128 @@ export async function googleMapsSearch(query: string, city: string, state: strin
     const data = await gmFetch(`https://maps.googleapis.com/maps/api/place/textsearch/json?query=${q}&key=${GM_KEY}`)
     if (!data.results?.length) return []
     const top = data.results.slice(0, Math.min(maxResults, 20))
-    // Enrich top 5 with phone
+    // Enrich top 5 with phone/website
     const detailJobs = await Promise.allSettled(top.slice(0, 5).map(p => gmDetails(p.place_id)))
     return top.map((p, i) => {
-      const d = i < 5 && detailJobs[i].status === 'fulfilled' ? (detailJobs[i] as PromiseFulfilledResult<{formatted_phone_number?:string;website?:string}>).value : {}
-      const addrMatch = (p.formatted_address || '').match(/,\s*([^,]+),\s*[A-Z]{2}/i)
+      const d = i < 5 && detailJobs[i].status === 'fulfilled'
+        ? (detailJobs[i] as PromiseFulfilledResult<{formatted_phone_number?:string;website?:string}>).value
+        : {}
       return {
-        company_name: p.name, phone: d.formatted_phone_number || '', website: d.website || '',
-        address: p.formatted_address || p.vicinity || '', city: addrMatch?.[1]?.trim() || city,
-        state, rating: p.rating, category: query, source: 'google_maps',
+        company_name: p.name,
+        phone: d.formatted_phone_number || '',
+        website: d.website || '',
+        address: p.formatted_address || p.vicinity || '',
+        city, state,
+        rating: p.rating,
+        review_count: p.user_ratings_total,
+        category: query,
+        source: 'google_maps',
+        place_id: p.place_id,
         source_url: `https://maps.google.com/search/${encodeURIComponent(p.name)}`,
       }
     })
   } catch (e) { console.error('[googleMaps]', e); return [] }
 }
 
-export async function multiKeywordSweep(city: string, state: string): Promise<Lead[]> {
+// ── SOURCE 2: Google Maps Type Filter sweep ───────────────────────────────────
+export async function googleMapsTypeSearch(type: string, city: string, state: string, keyword = 'epoxy concrete coating'): Promise<Lead[]> {
+  if (!GM_KEY) return []
+  try {
+    // Get city center coords via geocoding
+    const geoUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(city+' '+state)}&key=${GM_KEY}`
+    const geoR   = await fetch(geoUrl, { signal: AbortSignal.timeout(8000) })
+    const geoD   = await geoR.json()
+    const loc    = geoD.results?.[0]?.geometry?.location
+    if (!loc) return []
+
+    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${loc.lat},${loc.lng}&radius=50000&type=${type}&keyword=${encodeURIComponent(keyword)}&key=${GM_KEY}`
+    const data = await gmFetch(url)
+    if (!data.results?.length) return []
+    return data.results.slice(0, 20).map(p => ({
+      company_name: p.name,
+      phone: '', website: '',
+      address: p.formatted_address || p.vicinity || '',
+      city, state,
+      rating: p.rating,
+      review_count: p.user_ratings_total,
+      category: type,
+      source: 'google_maps_type',
+      place_id: p.place_id,
+    }))
+  } catch (e) { console.error('[gmType]', type, e); return [] }
+}
+
+// ── MAXIMUM SWEEP: all 16 keywords + 4 type filters ──────────────────────────
+export async function maxKeywordSweep(city: string, state: string): Promise<Lead[]> {
   const all: Lead[] = []
+  // 16 keywords
   for (const kw of XPS_KEYWORDS) {
     try {
       const leads = await googleMapsSearch(kw, city, state, 20)
       all.push(...leads)
+      await new Promise(r => setTimeout(r, 200))
+    } catch (e) { console.error('[maxSweep kw]', kw, e) }
+  }
+  // 4 type filters
+  for (const type of GM_TYPE_FILTERS) {
+    try {
+      const leads = await googleMapsTypeSearch(type, city, state)
+      all.push(...leads)
       await new Promise(r => setTimeout(r, 300))
-    } catch (e) { console.error('[multiKeyword]', kw, e) }
+    } catch (e) { console.error('[maxSweep type]', type, e) }
   }
   return dedupeLeads(all)
 }
 
-export async function multiCitySweep(cities: string[] = AZ_CITIES, state = 'AZ', industry = 'Epoxy Flooring') {
-  const results: { city: string; leads: Lead[]; count: number }[] = []
-  for (const city of cities) {
-    try {
-      const leads = await googleMapsSearch(industry, city, state, 20)
-      results.push({ city, leads, count: leads.length })
-      await new Promise(r => setTimeout(r, 500))
-    } catch (e) { console.error('[multiCity]', city, e); results.push({ city, leads: [], count: 0 }) }
+// ── SOURCE 3: BBB.org (FREE — no key, public HTML) ───────────────────────────
+export async function bbbScrape(industry: string, city: string, state: string, pages = 3): Promise<Lead[]> {
+  const all: Lead[] = []
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
   }
-  return results
+  for (let page = 1; page <= pages; page++) {
+    try {
+      const url = `https://www.bbb.org/search?find_text=${encodeURIComponent(industry)}&find_loc=${encodeURIComponent(city+', '+state)}&page=${page}`
+      const r = await fetch(url, { headers, signal: AbortSignal.timeout(20000) })
+      if (!r.ok) break
+      const html = await r.text()
+
+      // Extract structured business+phone pairs from inline JSON
+      const nameMatches  = [...html.matchAll(/"name"\s*:\s*"([^"]{5,70})"/g)].map(m => m[1])
+      const phoneMatches = [...html.matchAll(/\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4}/g)].map(m => m[0])
+      const ratingMatches = [...html.matchAll(/"ratingValue"\s*:\s*"?(\d+\.?\d*)"?/g)].map(m => parseFloat(m[1]))
+      const addrMatches  = [...html.matchAll(/"streetAddress"\s*:\s*"([^"]{5,80})"/g)].map(m => m[1])
+
+      // Filter out non-business names (city names, category labels)
+      const stopWords = new Set(['phoenix','scottsdale','mesa','arizona','az','epoxy','flooring','concrete','bbb','better business','accredited'])
+      const validNames = nameMatches.filter(n => {
+        const lower = n.toLowerCase()
+        return n.length >= 5 && !stopWords.has(lower) && !/^(Floor|Concrete|Epoxy|Coating|Phoenix|AZ|Arizona)$/i.test(n)
+      })
+
+      for (let i = 0; i < Math.min(validNames.length, 25); i++) {
+        const name = validNames[i]?.trim()
+        if (!name || name.length < 4) continue
+        all.push({
+          company_name: name,
+          phone: phoneMatches[i] || '',
+          address: addrMatches[i] || '',
+          rating: ratingMatches[i] || undefined,
+          city, state,
+          category: industry,
+          source: 'bbb',
+          source_url: url,
+        })
+      }
+      await new Promise(r => setTimeout(r, 500))
+    } catch (e) { console.error('[bbb] page', page, e); break }
+  }
+  return all
 }
 
-// ── SOURCE 2: Yellow Pages (FREE — direct HTML, no key needed) ─────────────
+// ── SOURCE 4: Yellow Pages (FREE direct HTML) ─────────────────────────────────
 export async function yellowPagesScrape(industry: string, city: string, state: string): Promise<Lead[]> {
   try {
     const search = encodeURIComponent(industry)
@@ -125,7 +245,7 @@ export async function yellowPagesScrape(industry: string, city: string, state: s
     const url    = `https://www.yellowpages.com/search?search_terms=${search}&geo_location_terms=${loc}`
     const r = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       },
@@ -133,55 +253,42 @@ export async function yellowPagesScrape(industry: string, city: string, state: s
     })
     if (!r.ok) return []
     const html = await r.text()
-
-    // Parse structured data (JSON-LD business+phone pairs)
-    const businesses: Lead[] = []
-    const nameMatches  = [...html.matchAll(/"name"\s*:\s*"([^"]{5,70})"/g)].map(m => m[1]).filter(n => !/^(Phoenix|Scottsdale|Mesa|Arizona|AZ|epoxy|flooring|concrete)$/i.test(n))
+    const nameMatches  = [...html.matchAll(/"name"\s*:\s*"([^"]{5,70})"/g)].map(m => m[1]).filter(n => n.length > 4)
     const phoneMatches = [...html.matchAll(/\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4}/g)].map(m => m[0])
     const addrMatches  = [...html.matchAll(/"streetAddress"\s*:\s*"([^"]{5,80})"/g)].map(m => m[1])
-
     const seen = new Set<string>()
+    const result: Lead[] = []
     for (let i = 0; i < Math.min(nameMatches.length, 30); i++) {
       const name = nameMatches[i]?.trim()
       if (!name || name.length < 4) continue
-      const key  = name.toLowerCase().replace(/[^a-z0-9]/g,'')
+      const key = name.toLowerCase().replace(/[^a-z0-9]/g,'')
       if (seen.has(key)) continue
       seen.add(key)
-      businesses.push({
-        company_name: name,
-        phone: phoneMatches[i] || '',
-        address: addrMatches[i] || '',
-        city, state, category: industry,
-        source: 'yellowpages', source_url: url,
-      })
+      result.push({ company_name: name, phone: phoneMatches[i] || '', address: addrMatches[i] || '', city, state, category: industry, source: 'yellowpages', source_url: url })
     }
-    return businesses
+    return result
   } catch (e) { console.error('[yellowPages]', e); return [] }
 }
 
-// ── SOURCE 3: Yelp Fusion API (FREE — 500 calls/day with free key) ─────────
-export async function yelpSearch(industry: string, city: string, state: string, limit = 20): Promise<Lead[]> {
+// ── SOURCE 5: Yelp Fusion (FREE 500/day — add YELP_API_KEY) ──────────────────
+export async function yelpSearch(industry: string, city: string, state: string, limit = 50): Promise<Lead[]> {
   if (!YELP_KEY) return []
   try {
     const url = `https://api.yelp.com/v3/businesses/search?term=${encodeURIComponent(industry)}&location=${encodeURIComponent(city+','+state)}&limit=${Math.min(limit,50)}&sort_by=rating`
-    const r = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${YELP_KEY}` },
-      signal: AbortSignal.timeout(12000),
-    })
+    const r = await fetch(url, { headers: { 'Authorization': `Bearer ${YELP_KEY}` }, signal: AbortSignal.timeout(12000) })
     if (!r.ok) return []
     const d = await r.json()
-    return (d.businesses || []).map((b: {name:string;phone?:string;url?:string;rating?:number;location?:{address1?:string;city?:string;state?:string};categories?:{title:string}[]}) => ({
+    return (d.businesses || []).map((b: {name:string;phone?:string;url?:string;rating?:number;review_count?:number;location?:{address1?:string;city?:string;state?:string}}) => ({
       company_name: b.name, phone: b.phone || '', website: b.url || '',
-      rating: b.rating, address: b.location?.address1 || '',
-      city: b.location?.city || city, state: b.location?.state || state,
+      rating: b.rating, review_count: b.review_count,
+      address: b.location?.address1 || '', city: b.location?.city || city, state: b.location?.state || state,
       category: industry, source: 'yelp',
-      source_url: `https://www.yelp.com/search?find_desc=${encodeURIComponent(industry)}&find_loc=${encodeURIComponent(city)}`,
     }))
   } catch (e) { console.error('[yelp]', e); return [] }
 }
 
-// ── SOURCE 4: Bing Maps Local Search (FREE — 125k/year with free key) ──────
-export async function bingLocalSearch(industry: string, city: string, state: string, limit = 20): Promise<Lead[]> {
+// ── SOURCE 6: Bing Maps (FREE 125k/yr — add BING_MAPS_KEY) ───────────────────
+export async function bingLocalSearch(industry: string, city: string, state: string, limit = 25): Promise<Lead[]> {
   if (!BING_KEY) return []
   try {
     const q   = encodeURIComponent(`${industry} ${city} ${state}`)
@@ -191,53 +298,39 @@ export async function bingLocalSearch(industry: string, city: string, state: str
     const d   = await r.json()
     const places = d.resourceSets?.[0]?.resources?.[0]?.value || []
     return places.map((p: {name?:string;PhoneNumber?:string;Website?:string;Address?:{addressLine?:string;locality?:string;adminDistrict?:string}}) => ({
-      company_name: p.name || 'Unknown',
-      phone: p.PhoneNumber || '', website: p.Website || '',
-      address: p.Address?.addressLine || '',
-      city: p.Address?.locality || city,
-      state: p.Address?.adminDistrict || state,
+      company_name: p.name || 'Unknown', phone: p.PhoneNumber || '', website: p.Website || '',
+      address: p.Address?.addressLine || '', city: p.Address?.locality || city, state: p.Address?.adminDistrict || state,
       category: industry, source: 'bing_maps',
     }))
   } catch (e) { console.error('[bing]', e); return [] }
 }
 
-// ── SOURCE 5: Apollo.io (FREE tier available) ──────────────────────────────
+// ── SOURCE 7: Apollo.io ───────────────────────────────────────────────────────
 export async function apolloSearch(industry: string, city: string, state: string, limit = 25): Promise<Lead[]> {
   if (!AP_KEY) return []
   try {
-    const body = { q_organization_keyword_tags: [industry], person_locations: [`${city}, ${state}`], per_page: Math.min(limit, 50), page: 1 }
-    const r = await fetch('https://api.apollo.io/v1/mixed_people/search', {
+    const body = { q_organization_keyword_tags: [industry], organization_locations: [`${city}, ${state}`], per_page: Math.min(limit, 50), page: 1 }
+    const r = await fetch('https://api.apollo.io/v1/organizations/search', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Api-Key': AP_KEY, 'Cache-Control': 'no-cache' },
+      headers: { 'Content-Type': 'application/json', 'X-Api-Key': AP_KEY },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(20000),
     })
-    if (!r.ok) {
-      const r2 = await fetch('https://api.apollo.io/v1/organizations/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Api-Key': AP_KEY },
-        body: JSON.stringify({ q_organization_keyword_tags: [industry], organization_locations: [`${city}, ${state}`], per_page: limit }),
-        signal: AbortSignal.timeout(15000),
-      })
-      if (!r2.ok) return []
-      const d2 = await r2.json()
-      return (d2.organizations || []).map((o: {name?:string;phone_numbers?:{raw_number:string}[];primary_phone?:{number:string};website_url?:string;city?:string;state?:string;primary_domain?:string}) => ({
-        company_name: o.name || 'Unknown', phone: o.phone_numbers?.[0]?.raw_number || o.primary_phone?.number || '',
-        website: o.website_url || '', city: o.city || city, state: o.state || state,
-        email: o.primary_domain ? `info@${o.primary_domain}` : '', category: industry, source: 'apollo_org',
-      }))
-    }
+    if (!r.ok) return []
     const d = await r.json()
-    return (d.people || []).map((p: {name?:string;organization?:{name?:string};phone_numbers?:{raw_number:string}[];email?:string;city?:string;state?:string;organization_name?:string}) => ({
-      company_name: p.organization?.name || p.organization_name || p.name || 'Unknown',
-      phone: p.phone_numbers?.[0]?.raw_number || '', email: p.email || '',
-      city: p.city || city, state: p.state || state, category: industry, source: 'apollo',
+    return (d.organizations || []).map((o: {name?:string;primary_phone?:{number:string};phone_numbers?:{raw_number:string}[];website_url?:string;city?:string;state?:string;primary_domain?:string}) => ({
+      company_name: o.name || 'Unknown',
+      phone: o.primary_phone?.number || o.phone_numbers?.[0]?.raw_number || '',
+      website: o.website_url || '',
+      email: o.primary_domain ? `info@${o.primary_domain}` : '',
+      city: o.city || city, state: o.state || state,
+      category: industry, source: 'apollo',
     }))
   } catch (e) { console.error('[apollo]', e); return [] }
 }
 
-// ── SOURCE 6: AI Gateway fallback (use only if <5 results from real sources) 
-export async function aiLeads(industry: string, city: string, state: string, limit = 12): Promise<Lead[]> {
+// ── SOURCE 8: AI Gateway fallback (only if <5 real results) ──────────────────
+export async function aiLeads(industry: string, city: string, state: string, limit = 15): Promise<Lead[]> {
   if (!AI_KEY) return []
   try {
     const r = await fetch(AI_URL + '/chat/completions', {
@@ -245,8 +338,8 @@ export async function aiLeads(industry: string, city: string, state: string, lim
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AI_KEY },
       body: JSON.stringify({
         model: 'openai/gpt-4o-mini',
-        messages: [{ role: 'user', content: `List ${Math.min(limit,12)} real ${industry} contractors in ${city}, ${state}. Real businesses only — no placeholders. Return JSON array ONLY: [{"company_name":"...","phone":"XXX-XXX-XXXX","city":"${city}","state":"${state}","website":"...","category":"${industry}"}]` }],
-        temperature: 0.1, max_tokens: 800,
+        messages: [{ role: 'user', content: `List ${Math.min(limit,15)} real ${industry} contractors in ${city}, ${state}. Real known businesses only — no fabrications. Return JSON array ONLY: [{"company_name":"...","phone":"XXX-XXX-XXXX","city":"${city}","state":"${state}","website":"https://...","category":"${industry}"}]` }],
+        temperature: 0.1, max_tokens: 1000,
       }),
       signal: AbortSignal.timeout(20000),
     })
@@ -259,56 +352,20 @@ export async function aiLeads(industry: string, city: string, state: string, lim
   } catch (e) { console.error('[aiLeads]', e); return [] }
 }
 
-// ── BrowserWorker validation ───────────────────────────────────────────────
-export async function bwValidate(url: string): Promise<boolean> {
-  if (!BW_SEC || !url) return false
-  try {
-    const r = await fetch(BW_URL + '/api/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + BW_SEC },
-      body: JSON.stringify({ version: '1.0', job_id: 'val-' + Date.now(), steps: [{ action: 'goto', url, timeout: 12000 }, { action: 'get_title' }], timeout_ms: 20000 }),
-      signal: AbortSignal.timeout(25000),
-    })
-    const d = await r.json()
-    const title: string = d.steps?.find((s:{action:string}) => s.action === 'get_title')?.result?.title || ''
-    return d.status === 'pass' && !/(cloudflare|attention required|403|captcha)/i.test(title)
-  } catch { return false }
+// ── Multi-city sweep ──────────────────────────────────────────────────────────
+export async function multiCitySweep(cities: string[] = AZ_CITIES, state = 'AZ', industry = 'Epoxy Flooring') {
+  const results: { city: string; leads: Lead[]; count: number }[] = []
+  for (const city of cities) {
+    try {
+      const leads = await googleMapsSearch(industry, city, state, 20)
+      results.push({ city, leads, count: leads.length })
+      await new Promise(r => setTimeout(r, 400))
+    } catch (e) { console.error('[multiCity]', city, e); results.push({ city, leads: [], count: 0 }) }
+  }
+  return results
 }
 
-// ── ScrapingBee (only use if credits > 0) ─────────────────────────────────
-async function sbCreditsOk(): Promise<boolean> {
-  const sbKey = process.env.SCRAPINGBEE_API_KEY || ''
-  if (!sbKey) return false
-  try {
-    const r = await fetch(`https://app.scrapingbee.com/api/v1/usage?api_key=${sbKey}`, { signal: AbortSignal.timeout(5000) })
-    const d = await r.json()
-    return (d.max_api_credit - d.used_api_credit) > 0
-  } catch { return false }
-}
-
-export async function scrapingBeeScrape(industry: string, city: string, state: string): Promise<Lead[]> {
-  const sbKey = process.env.SCRAPINGBEE_API_KEY || ''
-  if (!sbKey) return []
-  const ok = await sbCreditsOk()
-  if (!ok) { console.warn('[scrapingBee] Credits exhausted — skipping'); return [] }
-  try {
-    const url   = `https://www.yellowpages.com/search?search_terms=${encodeURIComponent(industry)}&geo_location_terms=${encodeURIComponent(city+' '+state)}`
-    const sbUrl = `https://app.scrapingbee.com/api/v1/?api_key=${sbKey}&url=${encodeURIComponent(url)}&render_js=true&premium_proxy=true&country_code=us&block_ads=true`
-    const r     = await fetch(sbUrl, { signal: AbortSignal.timeout(40000) })
-    if (!r.ok) return []
-    const html  = await r.text()
-    const names  = [...html.matchAll(/class="business-name[^"]*"[^>]*>\s*<[^>]+>([^<]{3,80})</g)].map(m => m[1].trim())
-    const phones = [...html.matchAll(/\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4}/g)].map(m => m[0])
-    const seen   = new Set<string>()
-    return names.slice(0,25).map((name,i) => {
-      const key = name.toLowerCase().replace(/[^a-z0-9]/g,'')
-      if (seen.has(key)) return null; seen.add(key)
-      return { company_name: name, phone: phones[i]||'', city, state, category: industry, source:'scrapingbee_yp', source_url: url }
-    }).filter(Boolean) as Lead[]
-  } catch (e) { console.error('[scrapingBee]', e); return [] }
-}
-
-// ── Supabase save ─────────────────────────────────────────────────────────
+// ── Save to Supabase ──────────────────────────────────────────────────────────
 export async function saveLeads(leads: Lead[], meta: { industry: string; location: string; method: string; ms: number }): Promise<{ saved: number }> {
   if (!SB_URL || !SB_RKEY || !leads.length) return { saved: 0 }
   try {
