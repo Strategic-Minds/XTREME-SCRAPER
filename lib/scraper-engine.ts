@@ -140,17 +140,30 @@ export async function googleMapsSearch(query: string, city: string, state: strin
 }
 
 // ── SOURCE 2: Google Maps Type Filter sweep ───────────────────────────────────
+// ── CITY COORDS LOOKUP (no geocoding API call — instant) ────────────────────
+const CITY_COORDS: Record<string, { lat: number; lng: number }> = {
+  'phoenix':     { lat: 33.4484, lng: -112.0740 },
+  'scottsdale':  { lat: 33.4942, lng: -111.9261 },
+  'mesa':        { lat: 33.4152, lng: -111.8315 },
+  'tempe':       { lat: 33.4255, lng: -111.9400 },
+  'chandler':    { lat: 33.3062, lng: -111.8413 },
+  'gilbert':     { lat: 33.3528, lng: -111.7890 },
+  'glendale':    { lat: 33.5387, lng: -112.1860 },
+  'peoria':      { lat: 33.5806, lng: -112.2374 },
+  'surprise':    { lat: 33.6292, lng: -112.3679 },
+  'tucson':      { lat: 32.2226, lng: -110.9747 },
+  'flagstaff':   { lat: 35.1983, lng: -111.6513 },
+  'yuma':        { lat: 32.6927, lng: -114.6277 },
+  'prescott':    { lat: 34.5400, lng: -112.4685 },
+  'avondale':    { lat: 33.4356, lng: -112.3496 },
+  'goodyear':    { lat: 33.4353, lng: -112.3576 },
+}
+
 export async function googleMapsTypeSearch(type: string, city: string, state: string, keyword = 'epoxy concrete coating'): Promise<Lead[]> {
   if (!GM_KEY) return []
   try {
-    // Get city center coords via geocoding
-    const geoUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(city+' '+state)}&key=${GM_KEY}`
-    const geoR   = await fetch(geoUrl, { signal: AbortSignal.timeout(8000) })
-    const geoD   = await geoR.json()
-    const loc    = geoD.results?.[0]?.geometry?.location
-    if (!loc) return []
-
-    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${loc.lat},${loc.lng}&radius=50000&type=${type}&keyword=${encodeURIComponent(keyword)}&key=${GM_KEY}`
+    const coords = CITY_COORDS[city.toLowerCase()] || CITY_COORDS['phoenix']
+    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${coords.lat},${coords.lng}&radius=50000&type=${type}&keyword=${encodeURIComponent(keyword)}&key=${GM_KEY}`
     const data = await gmFetch(url)
     if (!data.results?.length) return []
     return data.results.slice(0, 20).map(p => ({
@@ -161,7 +174,7 @@ export async function googleMapsTypeSearch(type: string, city: string, state: st
       rating: p.rating,
       review_count: p.user_ratings_total,
       category: type,
-      source: 'google_maps_type',
+      source: 'google_maps_type' as const,
       place_id: p.place_id,
     }))
   } catch (e) { console.error('[gmType]', type, e); return [] }
