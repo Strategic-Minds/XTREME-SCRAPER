@@ -182,23 +182,34 @@ export async function googleMapsTypeSearch(type: string, city: string, state: st
 
 // ── MAXIMUM SWEEP: all 16 keywords + 4 type filters ──────────────────────────
 export async function maxKeywordSweep(city: string, state: string): Promise<Lead[]> {
+  // Run all 16 keyword fetches IN PARALLEL — brings 16s → ~2s
+  const CONCURRENCY = 4 // 4 parallel batches to respect rate limits
   const all: Lead[] = []
-  // 16 keywords
-  for (const kw of XPS_KEYWORDS) {
-    try {
-      const leads = await googleMapsSearch(kw, city, state, 20)
-      all.push(...leads)
-      await new Promise(r => setTimeout(r, 200))
-    } catch (e) { console.error('[maxSweep kw]', kw, e) }
+
+  // Batch keywords into groups of CONCURRENCY
+  const kwBatches: string[][] = []
+  for (let i = 0; i < XPS_KEYWORDS.length; i += CONCURRENCY) {
+    kwBatches.push(XPS_KEYWORDS.slice(i, i + CONCURRENCY))
   }
-  // 4 type filters
-  for (const type of GM_TYPE_FILTERS) {
-    try {
-      const leads = await googleMapsTypeSearch(type, city, state)
-      all.push(...leads)
-      await new Promise(r => setTimeout(r, 300))
-    } catch (e) { console.error('[maxSweep type]', type, e) }
+
+  for (const batch of kwBatches) {
+    const results = await Promise.allSettled(
+      batch.map(kw => googleMapsSearch(kw, city, state, 20).catch(e => { console.error('[maxSweep kw]', kw, e); return [] }))
+    )
+    for (const r of results) {
+      if (r.status === 'fulfilled') all.push(...r.value)
+    }
+    await new Promise(r => setTimeout(r, 150)) // brief pause between batches
   }
+
+  // Run 4 type filters in parallel
+  const typeResults = await Promise.allSettled(
+    GM_TYPE_FILTERS.map(type => googleMapsTypeSearch(type, city, state).catch(e => { console.error('[maxSweep type]', type, e); return [] }))
+  )
+  for (const r of typeResults) {
+    if (r.status === 'fulfilled') all.push(...r.value)
+  }
+
   return dedupeLeads(all)
 }
 
