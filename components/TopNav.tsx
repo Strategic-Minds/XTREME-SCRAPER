@@ -9,30 +9,30 @@ export default function TopNav() {
   const pathname = usePathname() || '';
 
   return (
-    <nav className="w-full bg-white border-b border-gray-100 py-4 px-6 md:px-12 flex items-center justify-between z-40 relative">
-      <Link href="/">
+    <nav className="relative z-40 flex w-full max-w-full items-center justify-between gap-3 overflow-hidden border-b border-gray-100 bg-white px-4 py-4 sm:px-6 md:px-12">
+      <Link href="/" className="min-w-0 shrink">
         <Logo />
       </Link>
-      
-      <div className="flex items-center space-x-8">
-        <Link 
+
+      <div className="flex shrink-0 items-center gap-3 sm:gap-5 md:gap-8">
+        <Link
           href="/"
-          className={`text-sm font-bold tracking-wider hover:text-[#FFBE00] transition-colors ${
+          className={`hidden text-sm font-bold tracking-wider transition-colors hover:text-[#FFBE00] sm:block ${
             pathname === '/' ? 'text-[#FFBE00]' : 'text-black'
           }`}
         >
           HOME
         </Link>
-        <Link 
+        <Link
           href="/memory"
-          className={`text-sm font-bold tracking-wider hover:text-[#FFBE00] transition-colors ${
+          className={`hidden text-sm font-bold tracking-wider transition-colors hover:text-[#FFBE00] sm:block ${
             pathname === '/memory' ? 'text-[#FFBE00]' : 'text-black'
           }`}
         >
           SAVED
         </Link>
         <Link href="/auth">
-          <button className="bg-[#FFBE00] text-black font-extrabold text-xs tracking-widest px-6 py-2.5 rounded hover:bg-amber-500 transition-all uppercase shadow-sm">
+          <button className="whitespace-nowrap rounded bg-[#FFBE00] px-4 py-2.5 text-[10px] font-extrabold uppercase tracking-widest text-black shadow-sm transition-all hover:bg-amber-500 sm:px-6 sm:text-xs">
             SIGN IN
           </button>
         </Link>
