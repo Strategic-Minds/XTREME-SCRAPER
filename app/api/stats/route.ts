@@ -17,11 +17,22 @@ async function count(table: string, qs = "") {
 }
 
 export async function GET() {
-  const yesterday = new Date(Date.now() - 86400000).toISOString()
-  const [total, today, runs] = await Promise.all([
-    count("leads"),
-    count("leads", `&scraped_at=gte.${yesterday}`),
-    count("scrape_runs"),
-  ])
-  return NextResponse.json({ total_leads: total, new_today: today, total_runs: runs })
+  try {
+    const yesterday = new Date(Date.now() - 86400000).toISOString()
+    const [total, today, runs] = await Promise.all([
+      count("leads"),
+      count("leads", `&scraped_at=gte.${yesterday}`),
+      count("scrape_runs"),
+    ])
+    return NextResponse.json(
+      { total_leads: total, new_today: today, total_runs: runs },
+      { headers: { 'Cache-Control': 'no-store' } }
+    )
+  } catch (e) {
+    console.error('[stats]', e)
+    return NextResponse.json(
+      { total_leads: 0, new_today: 0, total_runs: 0, error: 'Stats unavailable' },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+    )
+  }
 }
