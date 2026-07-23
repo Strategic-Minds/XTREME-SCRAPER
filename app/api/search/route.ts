@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { universalSearch, expandKeywords, inferGMTypes } from '@/lib/universal-engine'
+import { level5Search, expandQuery, inferTypes } from '@/lib/level5-engine'
 
 export const dynamic     = 'force-dynamic'
 export const maxDuration = 90
 
 function reqId() { return Math.random().toString(36).slice(2, 10).toUpperCase() }
-
 function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status, headers: { 'Cache-Control': 'no-store', 'X-Request-Id': reqId() } })
 }
 
-const VALID_MODES = new Set(['quick', 'deep', 'max'])
+const VALID_MODES = new Set(['quick', 'deep', 'max', 'level5'])
 
 export async function POST(req: NextRequest) {
   const rid = reqId()
@@ -18,27 +17,27 @@ export async function POST(req: NextRequest) {
   try { body = await req.json() } catch { return json({ ok: false, error: 'Invalid JSON', request_id: rid }, 400) }
 
   const b = body as Record<string, unknown>
-  const raw_query = typeof b.query === 'string' ? b.query.trim() : typeof b.industry === 'string' ? b.industry.trim() : ''
-  const city      = typeof b.city  === 'string' ? b.city.trim()  : 'Phoenix'
-  const state     = typeof b.state === 'string' ? b.state.trim().toUpperCase() : 'AZ'
-  const limit     = typeof b.limit === 'number' ? Math.min(Math.max(0, b.limit), 500) : 0
-  const mode      = VALID_MODES.has(String(b.mode)) ? String(b.mode) as 'quick'|'deep'|'max' : 'quick'
+  const query = typeof b.query === 'string' ? b.query.trim() : typeof b.industry === 'string' ? b.industry.trim() : ''
+  const city  = typeof b.city === 'string' ? b.city.trim() : 'Phoenix'
+  const state = typeof b.state === 'string' ? b.state.trim().toUpperCase() : 'AZ'
+  const limit = typeof b.limit === 'number' ? Math.min(Math.max(0, Math.floor(b.limit)), 500) : 0
+  const mode  = VALID_MODES.has(String(b.mode)) ? String(b.mode) as 'quick'|'deep'|'max'|'level5' : 'deep'
 
-  if (!raw_query || raw_query.length < 2) return json({ ok: false, error: 'query is required (min 2 chars)', request_id: rid }, 422)
-  if (raw_query.length > 200) return json({ ok: false, error: 'query too long (max 200 chars)', request_id: rid }, 422)
-  if (city.length < 2 || city.length > 100) return json({ ok: false, error: 'city must be 2-100 chars', request_id: rid }, 422)
+  if (!query || query.length < 2) return json({ ok: false, error: 'query is required (min 2 chars)', request_id: rid }, 422)
+  if (query.length > 200) return json({ ok: false, error: 'query too long (max 200 chars)', request_id: rid }, 422)
 
   try {
-    const result = await universalSearch({ raw_query, city, state, limit, mode })
+    const result = await level5Search({ query, city, state, mode, limit })
     return json({
       ok: true, request_id: rid,
-      query: raw_query, city, state, mode,
-      keywords_used: result.keywords_used,
-      types_used: inferGMTypes(raw_query),
+      query, city, state, mode,
+      keywords_expanded: result.keywords_expanded,
+      types_inferred: inferTypes(query),
       sources_used: result.sources_used,
-      total_results: result.results.length,
+      sources_skipped: result.sources_skipped,
+      total_results: result.total,
       duration_ms: result.duration_ms,
-      results: result.results,
+      results: result.leads,
     })
   } catch (err) {
     console.error(`[${rid}][FATAL]`, err)
@@ -48,21 +47,32 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   return json({
-    status: 'ready',
+    status: 'ready', version: 'level5',
     endpoint: '/api/search',
-    description: 'Universal search — any industry, any city, any category',
-    usage: { method: 'POST', body: { query: 'plumbers', city: 'Dallas', state: 'TX', mode: 'deep', limit: 100 } },
+    description: 'Level 5 Universal Intelligence Engine — any industry, any city, any category',
     modes: {
-      quick: '~3s — top keyword + BBB (~40 results)',
-      deep: '~20s — all keywords + type filters + BBB (~150 results)',
-      max: '~45s — everything + Apollo (~200+ results)',
+      quick:  '~3s  — Google Maps + BBB (~40 results)',
+      deep:   '~15s — 16 GM keywords + types + BBB + YP + Apollo (~150 results)',
+      max:    '~30s — All above sources fully saturated (~200 results)',
+      level5: '~60s — All above + Firecrawl + BrowserWorker + GM enrichment (~250 results)',
     },
+    sources: [
+      { id: 'google_maps',     active: !!process.env.GOOGLE_MAPS_API_KEY,    free: false, note: 'Primary — text search' },
+      { id: 'google_maps_type',active: !!process.env.GOOGLE_MAPS_API_KEY,    free: false, note: 'Nearby search by type' },
+      { id: 'bbb',            active: true,                                   free: true,  note: 'Direct HTML scrape' },
+      { id: 'yellowpages',    active: true,                                   free: true,  note: 'Direct + ScrapingBee proxy' },
+      { id: 'apollo',         active: !!process.env.APOLLO_API_KEY_2,         free: false, note: 'Verified contacts + emails' },
+      { id: 'firecrawl',      active: !!process.env.FIRECRAWL_API_KEY,        free: false, note: 'Deep page extraction' },
+      { id: 'browser_worker', active: !!(process.env.BROWSER_WORKER_SECRET), free: false, note: 'Cloud Chromium JS rendering' },
+      { id: 'scrapingbee',    active: !!process.env.SCRAPINGBEE_API_KEY,      free: false, note: 'Cloudflare bypass proxy' },
+      { id: 'ai_intelligence',active: !!process.env.AI_GATEWAY_API_KEY,       free: false, note: 'AI fallback (verified known businesses)' },
+    ],
     examples: [
-      { query: 'plumbers', city: 'Dallas', state: 'TX' },
-      { query: 'wedding photographers', city: 'Austin', state: 'TX' },
-      { query: 'roofing contractors', city: 'Denver', state: 'CO' },
-      { query: 'accountants', city: 'Chicago', state: 'IL' },
-      { query: 'restaurants', city: 'Miami', state: 'FL' },
+      { query: 'plumbers', city: 'Dallas', state: 'TX', mode: 'deep' },
+      { query: 'wedding photographers', city: 'Austin', state: 'TX', mode: 'deep' },
+      { query: 'epoxy flooring', city: 'Phoenix', state: 'AZ', mode: 'level5' },
+      { query: 'accountants', city: 'Chicago', state: 'IL', mode: 'deep' },
+      { query: 'roofing contractors', city: 'Denver', state: 'CO', mode: 'max' },
     ],
   })
 }
