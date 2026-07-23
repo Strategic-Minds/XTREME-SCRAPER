@@ -2,124 +2,198 @@
 
 import React from 'react';
 import Link from 'next/link';
-import TopNav from '../components/TopNav';
-import LeadCard from '../components/LeadCard';
-import { mockLeads } from '../lib/mockData';
 
 export default function Home() {
-  const [filteredLeads, setFilteredLeads] = React.useState(mockLeads.slice(0, 6));
-
   return (
-    <main className="min-h-screen bg-white text-black flex flex-col">
-      <TopNav />
-
-      {/* Hero — white background, clean */}
-      <section className="bg-white py-20 px-6 md:px-16 flex flex-col md:flex-row items-center justify-between max-w-7xl mx-auto w-full gap-12">
-        {/* Left */}
-        <div className="flex-1 space-y-6 max-w-xl">
-          <div className="inline-flex items-center space-x-2 bg-[#FFBE00]/10 border border-[#FFBE00]/30 px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest text-[#FFBE00] uppercase">
-            <span>⚡ XTREME SPEED ACQUISITION SYSTEM</span>
+    <main className="min-h-screen bg-[#ffffff] text-black font-sans flex flex-col selection:bg-[#FFBE00] selection:text-black">
+      
+      {/* SECTION 1 — HERO */}
+      <section className="relative min-h-screen flex flex-col justify-between bg-[#ffffff] text-black w-full overflow-hidden">
+        {/* Top Navbar */}
+        <header className="w-full flex items-center justify-between py-6 px-6 md:px-12 max-w-7xl mx-auto z-10">
+          <div className="font-black text-2xl tracking-tighter text-black uppercase">
+            XTREME SCRAPER
           </div>
+          <Link 
+            href="/dashboard" 
+            className="text-[#FFBE00] hover:text-[#e6ab00] font-black text-sm md:text-base flex items-center gap-1 transition-colors uppercase tracking-wider"
+          >
+            Go to Dashboard &rarr;
+          </Link>
+        </header>
 
-          <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight leading-tight text-black uppercase">
-            SCRAPE <span className="text-[#FFBE00]">XTREME</span><br />
-            LEADS IN<br />REAL-TIME
+        {/* Hero Center Content */}
+        <div className="flex-1 flex flex-col items-center justify-center px-6 md:px-12 text-center max-w-5xl mx-auto py-12 z-10">
+          <h1 className="text-5xl md:text-7xl lg:text-[80px] font-black text-black tracking-tighter leading-none uppercase">
+            Find 100+ Contractor Leads <br className="hidden md:inline" />in Under 60 Seconds
           </h1>
-
-          <p className="text-gray-500 font-medium text-base leading-relaxed max-w-md">
-            The ultimate commercial intelligence engine for high-value contractors. Instantly pinpoint, verify, and dominate your territory with automated multi-source extraction.
+          
+          <p className="mt-8 text-base md:text-xl text-gray-700 max-w-3xl mx-auto font-medium leading-relaxed">
+            Xtreme Scraper automatically pulls verified business names, phone numbers, and ratings from Google Maps, BBB, and more — filtered to exactly your industry and city. No subscriptions. No data brokers.
           </p>
 
-          <div className="flex items-center gap-4 pt-2">
-            <Link href="/auth">
-              <button className="px-8 py-4 bg-[#FFBE00] text-black font-extrabold text-sm tracking-widest uppercase rounded-lg shadow-md hover:bg-amber-500 transition-all">
-                LAUNCH SCRAPER FREE
+          <div className="mt-10">
+            <Link href="/dashboard">
+              <button className="bg-[#FFBE00] hover:bg-[#e6ab00] text-black font-extrabold px-8 py-5 rounded-none text-lg md:text-xl uppercase tracking-wider transition-all duration-200 transform hover:scale-[1.02] shadow-md flex items-center gap-2">
+                Start Scraping Now &rarr;
               </button>
             </Link>
           </div>
 
-          {/* Stats */}
-          <div className="flex items-center gap-8 pt-4 border-t border-gray-100">
-            <div>
-              <p className="text-2xl font-black text-black">8,742</p>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Leads Scraped</p>
-            </div>
-            <div>
-              <p className="text-2xl font-black text-black">10+</p>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sources</p>
-            </div>
-            <div>
-              <p className="text-2xl font-black text-black">24ms</p>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Avg Speed</p>
-            </div>
-          </div>
+          <p className="mt-6 text-xs md:text-sm text-gray-500 font-bold tracking-widest uppercase">
+            107 leads found last run &bull; 16 keywords &bull; 4 active sources
+          </p>
         </div>
 
-        {/* Right — mock preview card */}
-        <div className="flex-1 max-w-md w-full bg-gray-50 border border-gray-100 rounded-2xl overflow-hidden shadow-xl">
-          <div className="bg-black px-5 py-3 flex items-center justify-between">
-            <div className="flex items-center space-x-1.5">
-              <span className="w-3 h-3 rounded-full bg-red-500" />
-              <span className="w-3 h-3 rounded-full bg-yellow-400" />
-              <span className="w-3 h-3 rounded-full bg-green-500" />
-            </div>
-            <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">LIVE EXTRACTION SCREEN</span>
-          </div>
-          <div className="p-4 space-y-3">
-            {mockLeads.slice(0, 3).map((lead) => (
-              <div key={lead.id} className="bg-white border border-gray-100 rounded-xl p-4 flex items-center justify-between shadow-sm">
-                <div>
-                  <p className="text-xs font-black text-black uppercase">{lead.name}</p>
-                  <p className="text-[10px] text-gray-400 font-bold mt-0.5">{lead.location} · {lead.phone}</p>
+        {/* Bottom decorative spacer to balance viewport height */}
+        <div className="h-12 md:h-20"></div>
+      </section>
+
+      {/* SECTION 2 — HOW IT WORKS */}
+      <section className="bg-[#ffffff] py-24 px-6 md:px-12 border-t border-gray-100">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-3xl md:text-5xl font-black text-black text-center mb-16 tracking-tighter uppercase">
+            How It Works
+          </h2>
+          
+          <div className="flex flex-col md:flex-row gap-8">
+            {/* Step 1 */}
+            <div className="flex-1 bg-white border border-[#e5e7eb] rounded-none p-8 shadow-sm flex flex-col justify-between relative hover:shadow-md transition-all duration-300">
+              <div>
+                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[#FFBE00] text-black font-black text-base mb-6">
+                  1
                 </div>
-                <span className="text-[9px] font-black bg-[#FFBE00]/10 text-[#FFBE00] px-2 py-1 rounded border border-[#FFBE00]/20 uppercase tracking-wide">{lead.source}</span>
+                <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
+                  1. Pick Your Target
+                </h3>
+                <p className="text-gray-600 font-medium leading-relaxed text-sm md:text-base">
+                  Choose your industry (Epoxy Flooring, Concrete Polishing, etc.) and city. Takes 10 seconds.
+                </p>
               </div>
-            ))}
+            </div>
+
+            {/* Step 2 */}
+            <div className="flex-1 bg-white border border-[#e5e7eb] rounded-none p-8 shadow-sm flex flex-col justify-between relative hover:shadow-md transition-all duration-300">
+              <div>
+                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[#FFBE00] text-black font-black text-base mb-6">
+                  2
+                </div>
+                <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
+                  2. We Scan Everything
+                </h3>
+                <p className="text-gray-600 font-medium leading-relaxed text-sm md:text-base">
+                  Our engine hits Google Maps, BBB, Yellow Pages, and more simultaneously. 107 unique leads per run, deduplicated.
+                </p>
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="flex-1 bg-white border border-[#e5e7eb] rounded-none p-8 shadow-sm flex flex-col justify-between relative hover:shadow-md transition-all duration-300">
+              <div>
+                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[#FFBE00] text-black font-black text-base mb-6">
+                  3
+                </div>
+                <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
+                  3. Get Phone-Ready Leads
+                </h3>
+                <p className="text-gray-600 font-medium leading-relaxed text-sm md:text-base">
+                  Leads come back with company name, phone, rating, and source. Ready to call or export.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Results Section */}
-      <section className="py-16 px-6 md:px-16 max-w-7xl mx-auto w-full">
-        <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-100">
-          <div className="flex items-center space-x-3">
-            <h2 className="text-xl font-black tracking-tight text-black uppercase">LIVE SCRAPE RESULTS</h2>
-            <span className="bg-[#FFBE00]/10 text-[#FFBE00] text-[10px] font-black px-3 py-1 rounded-full border border-[#FFBE00]/20">
-              {filteredLeads.length} FOUND
-            </span>
+      {/* SECTION 3 — STATS BAR */}
+      <section className="bg-[#FFBE00] py-16 px-6 md:px-12 w-full">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12 md:gap-4 text-center text-black">
+          <div className="flex flex-col items-center flex-1">
+            <span className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter">16 Keywords</span>
+            <span className="text-black text-xs md:text-sm font-black mt-2 uppercase tracking-widest">Searched simultaneously</span>
           </div>
-          <Link href="/auth">
-            <button className="text-xs font-black text-[#FFBE00] hover:underline uppercase tracking-widest">
-              VIEW ALL →
-            </button>
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredLeads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} />
-          ))}
+          <div className="flex flex-col items-center flex-1">
+            <span className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter">107 Leads</span>
+            <span className="text-black text-xs md:text-sm font-black mt-2 uppercase tracking-widest">Per Phoenix, AZ run</span>
+          </div>
+          <div className="flex flex-col items-center flex-1">
+            <span className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter">56%</span>
+            <span className="text-black text-xs md:text-sm font-black mt-2 uppercase tracking-widest">Have verified phone numbers</span>
+          </div>
+          <div className="flex flex-col items-center flex-1">
+            <span className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter">4s</span>
+            <span className="text-black text-xs md:text-sm font-black mt-2 uppercase tracking-widest">Average run time (deep mode)</span>
+          </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-black text-white py-10 px-6 md:px-16 mt-auto">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <img
-              src="https://media.base44.com/images/public/69db047707a15d69135e3de9/d515e2792_ChatGPTImageJul14202610_12_57PM2.png"
-              style={{ height: '32px', mixBlendMode: 'multiply' as const, filter: 'invert(1)' }}
-              className="object-contain"
-              alt="XS"
-            />
-            <span className="text-xs font-black text-gray-500 uppercase tracking-widest">© 2026 Xtreme Scraper</span>
-          </div>
-          <div className="flex items-center space-x-6 text-[10px] font-black text-gray-600 uppercase tracking-widest">
-            <Link href="/auth" className="hover:text-[#FFBE00] transition-colors">Sign In</Link>
-            <Link href="/memory" className="hover:text-[#FFBE00] transition-colors">Saved</Link>
+      {/* SECTION 4 — WHO IT'S FOR */}
+      <section className="bg-[#ffffff] py-24 px-6 md:px-12 border-t border-gray-100">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-3xl md:text-5xl font-black text-black text-center mb-16 tracking-tighter uppercase">
+            Built For
+          </h2>
+          
+          <div className="flex flex-col md:flex-row gap-8">
+            {/* Persona 1 */}
+            <div className="flex-1 bg-white border border-[#e5e7eb] rounded-none p-8 shadow-sm hover:shadow-md transition-all duration-300">
+              <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
+                Epoxy & Flooring Contractors
+              </h3>
+              <p className="text-gray-600 font-medium leading-relaxed text-sm md:text-base">
+                Find competitors and referral partners in any city. Know who's active before you expand.
+              </p>
+            </div>
+
+            {/* Persona 2 */}
+            <div className="flex-1 bg-white border border-[#e5e7eb] rounded-none p-8 shadow-sm hover:shadow-md transition-all duration-300">
+              <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
+                Sales Teams & Canvassers
+              </h3>
+              <p className="text-gray-600 font-medium leading-relaxed text-sm md:text-base">
+                Generate fresh call lists every morning. Never run out of prospects in your territory.
+              </p>
+            </div>
+
+            {/* Persona 3 */}
+            <div className="flex-1 bg-white border border-[#e5e7eb] rounded-none p-8 shadow-sm hover:shadow-md transition-all duration-300">
+              <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
+                Business Owners & Operators
+              </h3>
+              <p className="text-gray-600 font-medium leading-relaxed text-sm md:text-base">
+                Understand your market. See who's operating in your area, their ratings, and phone numbers.
+              </p>
+            </div>
           </div>
         </div>
+      </section>
+
+      {/* SECTION 5 — FINAL CTA */}
+      <section className="bg-[#111111] py-24 px-6 md:px-12 text-center text-white">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl md:text-5xl font-black tracking-tighter uppercase leading-none text-white">
+            Your Next 100 Leads Are Waiting
+          </h2>
+          <p className="mt-6 text-gray-400 text-base md:text-xl font-medium max-w-xl mx-auto leading-relaxed">
+            Run your first search free. No account required.
+          </p>
+          <div className="mt-10">
+            <Link href="/dashboard">
+              <button className="bg-[#FFBE00] hover:bg-[#e6ab00] text-black font-extrabold px-8 py-5 rounded-none text-lg md:text-xl uppercase tracking-wider transition-all duration-200 transform hover:scale-[1.02] shadow-md flex items-center gap-2 mx-auto">
+                Open the Scraper &rarr;
+              </button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="bg-white py-12 px-6 md:px-12 border-t border-gray-100 text-center">
+        <p className="text-gray-500 font-bold text-sm uppercase tracking-wider">
+          &copy; 2026 Strategic Minds Advisory. All rights reserved.
+        </p>
       </footer>
+
     </main>
   );
 }
