@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { level5Search, expandQuery, inferTypes } from '@/lib/level5-engine'
+import { generateDeepInsight, generateFastInsight } from '@/lib/deep-intelligence'
 
 export const dynamic     = 'force-dynamic'
 export const maxDuration = 90
@@ -28,6 +29,21 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await level5Search({ query, city, state, mode, limit })
+
+    // Generate deep insight (try AI version, fall back to fast version)
+    let insight = null
+    let uses_ai = false
+    if (result.leads.length > 0) {
+      // Try AI insight (25s timeout budget already in the function)
+      insight = await generateDeepInsight(query, city, state, result.leads, result.sources_used, result.keywords_expanded)
+        .catch(() => null)
+      if (insight) {
+        uses_ai = true
+      } else {
+        insight = generateFastInsight(query, city, state, result.leads, result.sources_used)
+      }
+    }
+
     return json({
       ok: true, request_id: rid,
       query, city, state, mode,
@@ -38,6 +54,8 @@ export async function POST(req: NextRequest) {
       total_results: result.total,
       duration_ms: result.duration_ms,
       results: result.leads,
+      deep_insight: insight,
+      insight_type: insight ? (uses_ai ? 'ai_generated' : 'data_computed') : 'unavailable',
     })
   } catch (err) {
     console.error(`[${rid}][FATAL]`, err)
