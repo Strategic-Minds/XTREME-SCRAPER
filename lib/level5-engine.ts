@@ -99,6 +99,125 @@ export function expandQuery(query: string): string[] {
     insur: ['insurance agent', 'insurance broker', 'insurance company'],
     market: ['marketing agency', 'digital marketing', 'advertising agency', 'seo company'],
     it: ['it services', 'managed it', 'computer repair', 'tech support'],
+
+    // Stone, masonry, polishing
+    stone: ['stone polishing', 'marble polishing', 'granite restoration', 'stone restoration', 'concrete polishing', 'terrazzo polishing', 'floor polishing company', 'stone cleaning company', 'masonry contractor', 'stone fabricator'],
+    polis: ['polishing company', 'floor polishing', 'surface restoration', 'concrete polishing contractor', 'stone polishing contractor', 'marble restoration'],
+    marble: ['marble polishing', 'marble restoration', 'marble cleaning', 'stone polishing', 'terrazzo restoration'],
+    granit: ['granite polishing', 'granite restoration', 'stone fabrication', 'countertop restoration'],
+    terraz: ['terrazzo polishing', 'terrazzo restoration', 'terrazzo contractor'],
+    mason: ['masonry contractor', 'stone mason', 'brick mason', 'stonework contractor'],
+    concrete: ['concrete polishing', 'concrete coating', 'concrete contractor', 'decorative concrete', 'concrete restoration'],
+
+    // Restoration / cleaning specialty
+    restore: ['restoration contractor', 'surface restoration', 'property restoration', 'building restoration'],
+    restor: ['restoration contractor', 'surface restoration', 'stone restoration', 'floor restoration'],
+    pressure: ['pressure washing', 'power washing company', 'exterior cleaning'],
+    wash: ['pressure washing', 'window washing', 'fleet washing', 'soft wash contractor'],
+
+    // Windows / glass
+    window: ['window cleaning company', 'window washing service', 'glass restoration', 'commercial window cleaning'],
+    glass: ['glass company', 'glass repair', 'auto glass', 'commercial glazing'],
+
+    // Fencing / gates
+    fence: ['fencing contractor', 'fence installation', 'privacy fence', 'chain link fence', 'vinyl fence company'],
+    gate: ['gate installation', 'automatic gate', 'driveway gate', 'security gate contractor'],
+
+    // Decking / outdoor
+    deck: ['deck contractor', 'deck builder', 'composite decking', 'deck repair'],
+    patio: ['patio contractor', 'patio builder', 'outdoor living contractor', 'hardscape contractor'],
+    paver: ['paver contractor', 'paver installation', 'interlocking pavers', 'hardscape contractor'],
+    hard: ['hardscape contractor', 'paver installation', 'retaining wall contractor', 'outdoor contractor'],
+
+    // Pools / water
+    pool: ['pool contractor', 'pool installation', 'pool resurfacing', 'pool cleaning service', 'swimming pool company'],
+    water: ['water damage restoration', 'water heater repair', 'waterproofing contractor', 'water treatment'],
+    waterproof: ['waterproofing contractor', 'foundation waterproofing', 'basement waterproofing'],
+
+    // Foundation / structural
+    found: ['foundation repair', 'foundation contractor', 'structural repair', 'basement waterproofing'],
+    structur: ['structural contractor', 'structural engineer', 'foundation repair'],
+    brickwork: ['brick contractor', 'brick repair', 'tuckpointing', 'masonry repair'],
+
+    // Stucco / drywall
+    stucco: ['stucco contractor', 'stucco repair', 'plaster contractor', 'exterior coating'],
+    drywall: ['drywall contractor', 'drywall repair', 'drywall installation', 'interior contractor'],
+    plaster: ['plastering contractor', 'plaster repair', 'drywall contractor'],
+
+    // Insulation / energy
+    insulat: ['insulation contractor', 'spray foam insulation', 'attic insulation', 'energy efficiency contractor'],
+    solar: ['solar company', 'solar panel installation', 'solar contractor', 'renewable energy'],
+    generator: ['generator installation', 'standby generator', 'generator contractor'],
+
+    // Irrigation / water
+    irrigat: ['irrigation contractor', 'sprinkler system', 'drip irrigation', 'irrigation repair'],
+    sprinkler: ['sprinkler contractor', 'fire sprinkler', 'irrigation sprinkler', 'lawn sprinkler'],
+
+    // Tree / outdoor
+    tree: ['tree service', 'tree removal', 'tree trimming', 'arborist', 'stump grinding'],
+    stump: ['stump grinding', 'stump removal', 'tree service'],
+    arborist: ['certified arborist', 'tree service', 'tree trimming company'],
+
+    // Appliance / home services
+    appli: ['appliance repair', 'appliance installation', 'home appliance service'],
+    cabinet: ['cabinet maker', 'custom cabinets', 'cabinet installation', 'kitchen cabinets'],
+    counter: ['countertop installation', 'granite countertops', 'quartz countertops', 'stone fabricator'],
+
+    // Security / cameras
+    security: ['security system', 'security camera installation', 'alarm company', 'access control'],
+    alarm: ['alarm company', 'security alarm', 'fire alarm', 'home security'],
+    camera: ['security camera', 'cctv installation', 'surveillance camera'],
+
+    // Moving / storage
+    moving: ['moving company', 'local movers', 'long distance moving', 'furniture movers'],
+    storage: ['storage facility', 'self storage', 'moving and storage', 'portable storage'],
+    junk: ['junk removal', 'hauling company', 'debris removal', 'cleanout service'],
+    haul: ['hauling company', 'junk removal', 'debris hauling', 'waste removal'],
+
+    // Welding / fabrication
+    weld: ['welding company', 'welding contractor', 'metal fabrication', 'structural welding'],
+    fabricat: ['metal fabrication', 'custom fabrication', 'steel fabrication', 'welding shop'],
+    metal: ['metal fabrication', 'metalwork contractor', 'steel contractor', 'iron works'],
+
+    // Printing / signage
+    print: ['printing company', 'commercial printing', 'sign company', 'large format printing'],
+    sign: ['sign company', 'signage contractor', 'commercial signs', 'vinyl signs'],
+    wrap: ['vehicle wraps', 'car wrap company', 'fleet wraps', 'vinyl wrap shop'],
+
+    // Staffing / HR
+    staff: ['staffing agency', 'temp agency', 'employment agency', 'staffing company'],
+    recruit: ['recruiting agency', 'executive recruiter', 'staffing firm', 'headhunter'],
+
+    // Finance / consulting
+    finance: ['financial advisor', 'financial planning', 'investment advisor', 'wealth management'],
+    consult: ['consulting firm', 'business consultant', 'management consulting', 'strategy consultant'],
+
+    // Tech / software
+    tech: ['tech company', 'software company', 'it consulting', 'technology services'],
+    software: ['software company', 'software developer', 'app development', 'custom software'],
+    website: ['web design company', 'website developer', 'web development agency', 'digital agency'],
+
+    // Event / entertainment
+    event: ['event planning company', 'event venue', 'event coordinator', 'party planning'],
+    wedding: ['wedding planner', 'wedding venue', 'wedding photographer', 'wedding caterer'],
+    cater: ['catering company', 'corporate catering', 'event catering', 'food service'],
+    venue: ['event venue', 'wedding venue', 'banquet hall', 'conference center'],
+
+    // Health / wellness
+    therapy: ['physical therapy', 'massage therapy', 'occupational therapy', 'chiropractic'],
+    chiro: ['chiropractor', 'chiropractic clinic', 'spine specialist'],
+    vet: ['veterinarian', 'animal hospital', 'pet clinic', 'emergency vet'],
+    pharma: ['pharmacy', 'compounding pharmacy', 'specialty pharmacy'],
+
+    // Logistics
+    logistic: ['logistics company', 'freight broker', 'supply chain', 'warehousing'],
+    warehouse: ['warehouse company', 'fulfillment center', 'distribution center', 'storage warehouse'],
+    shipping: ['shipping company', 'freight company', 'courier service', 'delivery service'],
+
+    // Food production
+    bakery: ['bakery', 'custom bakery', 'wholesale bakery', 'artisan bakery'],
+    brewery: ['brewery', 'craft brewery', 'microbrewery', 'brewing company'],
+    coffee: ['coffee shop', 'coffee roaster', 'cafe', 'espresso bar'],
   }
 
   for (const [key, exps] of Object.entries(expansions)) {
@@ -130,6 +249,27 @@ export function inferTypes(query: string): string[] {
     ['real estate|realtor', ['real_estate_agency']],
     ['bank|credit union', ['bank']],
     ['school|tutor|educat', ['school']],
+    ['stone|polis|marble|granit|terraz|mason|slate', ['store', 'general_contractor', 'floor_covering_store', 'home_goods_store']],
+    ['concrete|cement', ['general_contractor', 'home_improvement_store', 'store']],
+    ['fence|gate', ['general_contractor', 'store']],
+    ['deck|patio|paver|hardscape', ['general_contractor', 'home_improvement_store']],
+    ['pool|spa', ['general_contractor', 'health', 'store']],
+    ['tree|arborist|stump', ['general_contractor', 'store']],
+    ['moving|mover', ['moving_company', 'storage']],
+    ['security|alarm|camera', ['store', 'electrician']],
+    ['weld|fabricat|metal', ['store', 'general_contractor']],
+    ['sign|print|wrap', ['store', 'point_of_interest']],
+    ['window|glass', ['store', 'general_contractor']],
+    ['waterproof|found', ['general_contractor', 'home_improvement_store']],
+    ['event|wedding|cater|venue', ['event_venue', 'restaurant', 'point_of_interest']],
+    ['vet|animal', ['veterinary_care']],
+    ['chiro|therapy', ['physiotherapist', 'health']],
+    ['software|tech|website|app', ['establishment', 'point_of_interest']],
+    ['staff|recruit', ['establishment', 'point_of_interest']],
+    ['logistic|warehouse|freight', ['moving_company', 'storage', 'establishment']],
+    ['bakery', ['bakery']],
+    ['brewery|brew', ['bar', 'food']],
+    ['coffee|cafe', ['cafe']],
   ]
   for (const [pattern, types] of map) {
     if (new RegExp(pattern).test(q)) return types
@@ -445,10 +585,44 @@ export async function syncToHubSpot(leads: L5Lead[]): Promise<{ synced: number }
 }
 
 // ── MASTER LEVEL 5 SEARCH ─────────────────────────────────────────────────────
+async function aiExpandQuery(query: string, city: string, state: string): Promise<string[]> {
+  const AI_URL = process.env.AI_GATEWAY_BASE_URL || 'https://ai-gateway.vercel.sh/v1'
+  const AI_KEY = process.env.AI_GATEWAY_API_KEY || ''
+  if (!AI_KEY) return []
+  try {
+    const r = await fetch(`${AI_URL}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AI_KEY}` },
+      body: JSON.stringify({
+        model: process.env.AI_MODEL_FAST || 'openai/gpt-4o-mini',
+        messages: [{ role: 'user', content: `Generate 12 highly specific Google Maps search query variations for "${query}" businesses in ${city}, ${state}. These should be the EXACT phrases someone would search to find this type of business. Include trade-specific terminology. Return ONLY a JSON array of strings. No explanation. Example format: ["stone polishing company", "marble restoration contractor", "terrazzo polishing service"]` }],
+        temperature: 0.3, max_tokens: 400,
+      }),
+      signal: AbortSignal.timeout(12000),
+    })
+    if (!r.ok) return []
+    const d = await r.json()
+    const content: string = d.choices?.[0]?.message?.content || ''
+    const match = content.match(/\[[\s\S]*?\]/)
+    if (!match) return []
+    const parsed = JSON.parse(match[0])
+    return Array.isArray(parsed) ? parsed.filter((s: unknown) => typeof s === 'string').slice(0, 12) : []
+  } catch { return [] }
+}
+
 export async function level5Search(q: L5Query): Promise<L5Result> {
   const start = Date.now()
   const { query, city, state, mode = 'deep', limit = 0 } = q
   const keywords = expandQuery(query)
+
+  // AI keyword expansion for niche queries
+  if (keywords.length < 10) {
+    const aiKeywords = await aiExpandQuery(query, city, state).catch(() => [])
+    for (const kw of aiKeywords) {
+      if (!keywords.includes(kw)) keywords.push(kw)
+    }
+  }
+
   const types    = inferTypes(query)
   const all: L5Lead[] = []
   const sources: string[] = []
