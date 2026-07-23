@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { level5Search, expandQuery, inferTypes } from '@/lib/level5-engine'
 import { generateDeepInsight, generateFastInsight } from '@/lib/deep-intelligence'
+import { dispatchIntelligence, type IntelligenceMode } from '@/lib/intelligence-modes'
 
 export const dynamic     = 'force-dynamic'
 export const maxDuration = 90
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
   const state = typeof b.state === 'string' ? b.state.trim().toUpperCase() : 'AZ'
   const limit = typeof b.limit === 'number' ? Math.min(Math.max(0, Math.floor(b.limit)), 500) : 0
   const mode  = VALID_MODES.has(String(b.mode)) ? String(b.mode) as 'quick'|'deep'|'max'|'level5' : 'deep'
+  const intelligence_mode: IntelligenceMode = ['flash','deep','counter_intel'].includes(String(b.intelligence_mode)) ? String(b.intelligence_mode) as IntelligenceMode : 'deep'
 
   if (!query || query.length < 2) return json({ ok: false, error: 'query is required (min 2 chars)', request_id: rid }, 422)
   if (query.length > 200) return json({ ok: false, error: 'query too long (max 200 chars)', request_id: rid }, 422)
@@ -30,18 +32,9 @@ export async function POST(req: NextRequest) {
   try {
     const result = await level5Search({ query, city, state, mode, limit })
 
-    // Generate deep insight (try AI version, fall back to fast version)
-    let insight = null
-    let uses_ai = false
+    let intelligence = null;
     if (result.leads.length > 0) {
-      // Try AI insight (25s timeout budget already in the function)
-      insight = await generateDeepInsight(query, city, state, result.leads, result.sources_used, result.keywords_expanded)
-        .catch(() => null)
-      if (insight) {
-        uses_ai = true
-      } else {
-        insight = generateFastInsight(query, city, state, result.leads, result.sources_used)
-      }
+      intelligence = await dispatchIntelligence(intelligence_mode, result.leads, query, city, state, result.sources_used, result.keywords_expanded).catch(() => null)
     }
 
     return json({
@@ -54,8 +47,9 @@ export async function POST(req: NextRequest) {
       total_results: result.total,
       duration_ms: result.duration_ms,
       results: result.leads,
-      deep_insight: insight,
-      insight_type: insight ? (uses_ai ? 'ai_generated' : 'data_computed') : 'unavailable',
+      intelligence_mode,
+      intelligence,
+      deep_insight: intelligence?.intel ?? null,
     })
   } catch (err) {
     console.error(`[${rid}][FATAL]`, err)
