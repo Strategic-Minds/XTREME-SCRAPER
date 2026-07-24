@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { level5Search, inferTypes } from '@/lib/level5-engine'
 import { dispatchIntelligence, type IntelligenceMode } from '@/lib/intelligence-modes'
 import { smartDedup } from '@/lib/dedup-engine'
-import { enrichTopLeads } from '@/lib/enrichment-engine'
+import { enrichBusiness } from '@/lib/enrichment-engine'
 import { protectLocationMode, type SearchMode } from '@/lib/location-guard'
 import { partitionBySourcePolicy } from '@/lib/source-policy'
 import { enforceRequestLimit } from '@/lib/request-guard'
@@ -46,6 +46,16 @@ async function persistLeads(leads: LeadRecord[], query: string) {
   } catch { return false }
 }
 
+async function enrichVerifiedLeads(leads: LeadRecord[]) {
+  return await Promise.allSettled(leads.slice(0, 3).map(lead => enrichBusiness(lead.company_name, {
+    city: lead.city,
+    state: lead.state,
+    phone: lead.phone,
+    website: lead.website,
+    layers: ['opencorporates', 'wayback'],
+  }))).then(items => items.flatMap(item => item.status === 'fulfilled' ? [item.value] : []))
+}
+
 async function executeSearch(req: NextRequest, body: Record<string, unknown>) {
   const rid = requestId()
   const started = Date.now()
@@ -75,11 +85,12 @@ async function executeSearch(req: NextRequest, body: Record<string, unknown>) {
     ? await dispatchIntelligence(intelMode, verified as any[], query, city, state, result.sources_used, result.keywords_expanded).catch(() => null)
     : null
 
-  const topThree = verified.slice(0, 3)
-  const autoEnriched = await Promise.race([
-    enrichTopLeads(topThree as any[], 3, ['opencorporates', 'wayback']).catch(() => []),
-    new Promise<any[]>(resolve => setTimeout(() => resolve([]), 8000)),
-  ])
+  const autoEnriched = dryRun
+    ? []
+    : await Promise.race([
+        enrichVerifiedLeads(verified),
+        new Promise<any[]>(resolve => setTimeout(() => resolve([]), 8000)),
+      ])
 
   const durationMs = Date.now() - started
   const persistence = dryRun
@@ -90,7 +101,7 @@ async function executeSearch(req: NextRequest, body: Record<string, unknown>) {
       ])
 
   const warnings = [location.warning].filter(Boolean) as string[]
-  if (dryRun) warnings.push('Dry-run validation completed without database persistence.')
+  if (dryRun) warnings.push('Dry-run validation completed without enrichment-cache or lead persistence.')
   if (rate.backend === 'memory') warnings.push('Distributed rate limiting is not configured; preview fallback limiting is active.')
   if (policy.quarantined.length) warnings.push(`${policy.quarantined.length} AI-only or unregistered-source candidate${policy.quarantined.length === 1 ? ' was' : 's were'} quarantined pending corroboration.`)
 
