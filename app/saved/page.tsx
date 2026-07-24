@@ -1,0 +1,5 @@
+import WorkspacePage from '@/components/WorkspacePage'
+
+export default function SavedPage() {
+  return <WorkspacePage title="Saved Searches and Lists" eyebrow="Reusable intelligence" description="Store approved search configurations, list membership, filters, and scoring context inside the user's organization boundary." cards={[{title:'Saved searches',copy:'Intent, location, mode, providers, filters, and alert eligibility.'},{title:'Target lists',copy:'Source-backed entities with unique membership, notes, owner, and lifecycle state.'},{title:'Team context',copy:'Shared organization access with least-privilege roles and complete audit events.'}]} emptyTitle="Persistence is not enabled in preview" emptyCopy="The interface is installed, but saved searches and lists will not write until the isolated Supabase migration and tenant-isolation tests are approved." notice="No data is silently stored from anonymous preview searches. This prevents preview traffic from contaminating customer or production records." />
+}
