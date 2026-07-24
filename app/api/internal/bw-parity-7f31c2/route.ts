@@ -8,8 +8,8 @@ const TARGET_URL = 'https://xtreme-scraper-git-auto-builder-5df621-strategic-min
 const WORKER_CAPTURE_URL = 'https://browserworker-git-auto-builder-a782fc-strategic-minds-advisory.vercel.app/api/capture'
 
 const VIEWPORTS = {
-  desktop: { width: 1440, height: 900, deviceScaleFactor: 1 },
-  tablet: { width: 768, height: 1024, deviceScaleFactor: 1 },
+  desktop: { width: 1440, height: 900, deviceScaleFactor: 0.5 },
+  tablet: { width: 768, height: 1024, deviceScaleFactor: 0.5 },
   mobile: { width: 390, height: 844, deviceScaleFactor: 1 },
 } as const
 
@@ -17,7 +17,7 @@ type ViewportName = keyof typeof VIEWPORTS
 
 export async function GET(request: NextRequest) {
   const viewportName = (request.nextUrl.searchParams.get('viewport') || 'desktop') as ViewportName
-  const format = request.nextUrl.searchParams.get('format') || 'png'
+  const format = request.nextUrl.searchParams.get('format') || 'image'
   const viewport = VIEWPORTS[viewportName]
 
   if (!viewport) {
@@ -41,6 +41,8 @@ export async function GET(request: NextRequest) {
       viewport,
       wait_ms: 2500,
       full_page: false,
+      image_type: 'jpeg',
+      quality: 60,
     }),
     cache: 'no-store',
   })
@@ -55,11 +57,14 @@ export async function GET(request: NextRequest) {
   }
 
   const bytes = new Uint8Array(await response.arrayBuffer())
+  const contentType = response.headers.get('content-type') || 'image/jpeg'
   const metadata = {
     ok: true,
     viewport: viewportName,
     configured_viewport: viewport,
     screenshot_bytes: bytes.byteLength,
+    image_type: response.headers.get('x-capture-image-type') || contentType,
+    image_quality: Number(response.headers.get('x-capture-quality') || 0),
     worker_version: response.headers.get('x-browserworker-version'),
     browser_version: response.headers.get('x-browser-version'),
     title: decodeURIComponent(response.headers.get('x-capture-title') || ''),
@@ -78,7 +83,7 @@ export async function GET(request: NextRequest) {
   return new Response(bytes, {
     status: 200,
     headers: {
-      'Content-Type': 'image/png',
+      'Content-Type': contentType,
       'Content-Length': String(bytes.byteLength),
       'Cache-Control': 'no-store',
       'X-BrowserWorker-Version': metadata.worker_version || '',
