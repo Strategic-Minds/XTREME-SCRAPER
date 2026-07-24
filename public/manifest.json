@@ -1,11 +1,11 @@
 {
-  "name": "XTREME SCRAPER",
-  "short_name": "XScraper",
-  "description": "The most powerful lead discovery tool for business owners",
+  "name": "XPS Intelligence",
+  "short_name": "XPS Intel",
+  "description": "Go Beyond Google. Find What Others Can't.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#090B10",
-  "theme_color": "#090B10",
+  "background_color": "#ffffff",
+  "theme_color": "#b58a2a",
   "orientation": "portrait-primary",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
