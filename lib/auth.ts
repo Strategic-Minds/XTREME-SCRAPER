@@ -9,6 +9,7 @@ const SB_SKEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 export const COOKIE_NAME = 'xps_token'
 
 export type Plan = 'anonymous' | 'free_trial' | 'starter' | 'pro' | 'elite'
+export type UsageAction = 'search' | 'enrich' | 'person'
 
 export interface XPSUser {
   id: string
@@ -148,10 +149,40 @@ export async function sendMagicLinkEmail(email: string, token: string, baseUrl: 
   return response.ok
 }
 
-export async function incrementUsage(userId: string, action: 'search' | 'enrich'): Promise<void> {
+export async function getUsageToday(userId: string, action: UsageAction): Promise<number> {
+  const user = await getUserById(userId)
+  if (!user || !SB_URL || !SB_SKEY) return 0
+  const today = new Date().toISOString().slice(0, 10)
+  if (action === 'search') return user.last_search_date === today ? user.searches_today || 0 : 0
+  if (action === 'enrich') return user.last_search_date === today ? user.enrichments_today || 0 : 0
+
+  try {
+    const start = `${today}T00:00:00.000Z`
+    const response = await fetch(`${SB_URL}/rest/v1/xps_usage_log?user_id=eq.${encodeURIComponent(userId)}&action=eq.person&created_at=gte.${encodeURIComponent(start)}&select=id`, {
+      headers: { ...sbHeaders('count=exact'), Range: '0-0' },
+      cache: 'no-store',
+    })
+    if (!response.ok) return 0
+    return Number.parseInt(response.headers.get('Content-Range')?.split('/')[1] || '0', 10) || 0
+  } catch {
+    return 0
+  }
+}
+
+export async function incrementUsage(userId: string, action: UsageAction): Promise<void> {
   const user = await getUserById(userId)
   if (!user || !SB_URL || !SB_SKEY) return
   const today = new Date().toISOString().slice(0, 10)
+
+  if (action === 'person') {
+    await fetch(`${SB_URL}/rest/v1/xps_usage_log`, {
+      method: 'POST',
+      headers: sbHeaders('return=minimal'),
+      body: JSON.stringify({ user_id: userId, action: 'person', plan: user.plan, created_at: new Date().toISOString() }),
+    }).catch(() => undefined)
+    return
+  }
+
   const newDay = user.last_search_date !== today
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (action === 'search') {
@@ -162,6 +193,8 @@ export async function incrementUsage(userId: string, action: 'search' | 'enrich'
     patch.enrichments_today = newDay ? 1 : (user.enrichments_today || 0) + 1
   }
   await fetch(`${SB_URL}/rest/v1/xps_users?id=eq.${encodeURIComponent(userId)}`, {
-    method: 'PATCH', headers: sbHeaders('return=minimal'), body: JSON.stringify(patch),
+    method: 'PATCH',
+    headers: sbHeaders('return=minimal'),
+    body: JSON.stringify(patch),
   })
 }
