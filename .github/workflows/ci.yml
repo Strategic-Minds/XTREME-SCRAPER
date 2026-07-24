@@ -31,6 +31,8 @@ jobs:
           grep -q "protectLocationMode" app/api/search/route.ts
           grep -q "partitionBySourcePolicy" app/api/search/route.ts
           grep -q "buildIntelligenceResults" app/api/search/route.ts
+      - name: Unit tests
+        run: npm test
       - name: Type check
         run: npm run typecheck
       - name: Production build
