@@ -6,7 +6,7 @@ export const maxDuration = 120
 const VIEWPORTS = {
   desktop: { width: 1440, height: 1024, deviceScaleFactor: 0.5 },
   tablet: { width: 1024, height: 768, deviceScaleFactor: 0.5 },
-  mobile: { width: 390, height: 844, deviceScaleFactor: 1 },
+  mobile: { width: 390, height: 844, deviceScaleFactor: 0.5 },
 } as const
 
 type ViewportName = keyof typeof VIEWPORTS
