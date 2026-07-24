@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "next": "14.2.5",
@@ -24,5 +26,8 @@
     "clsx": "^2.1.1",
     "jose": "^5.9.6",
     "@supabase/supabase-js": "^2.45.4"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.4"
   }
 }
