@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   const auth = await requireOrganization(req)
-  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status })
+  if ('error' in auth) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status })
   const response = await fetch(`${supabaseBaseUrl()}/rest/v1/xps_alerts?organization_id=eq.${encodeURIComponent(auth.context.organizationId)}&select=id,saved_search_id,status,cadence,signal_types,minimum_confidence,last_checked_at,next_check_at,created_at,updated_at&order=updated_at.desc&limit=100`, { headers: supabaseHeaders(), cache: 'no-store' })
   if (response.status === 404) return NextResponse.json({ ok: false, error: 'Alert schema is not installed in this environment.' }, { status: 503 })
   if (!response.ok) return NextResponse.json({ ok: false, error: 'Alerts could not be loaded.' }, { status: 502 })
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   const rate = await enforceRequestLimit(req, 'alert', 10, 60)
   if (!rate.allowed) return NextResponse.json({ ok: false, error: 'Alert rate limit exceeded.' }, { status: 429, headers: { 'Retry-After': String(rate.retryAfter) } })
   const auth = await requireOrganization(req, ['owner', 'admin', 'analyst', 'member'])
-  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status })
+  if ('error' in auth) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status })
   const body = await req.json().catch(() => null) as Record<string, unknown> | null
   const savedSearchId = typeof body?.saved_search_id === 'string' ? body.saved_search_id : ''
   const cadence = ['hourly', 'daily', 'weekly'].includes(String(body?.cadence)) ? String(body?.cadence) : 'daily'
