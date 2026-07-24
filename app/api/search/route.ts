@@ -55,6 +55,7 @@ async function executeSearch(req: NextRequest, body: Record<string, unknown>) {
   const requestedMode = VALID_MODES.has(String(body.mode) as SearchMode) ? String(body.mode) as SearchMode : 'deep'
   const intelMode = VALID_INTEL.has(String(body.intelligence_mode) as IntelligenceMode) ? String(body.intelligence_mode) as IntelligenceMode : 'deep'
   const limit = typeof body.limit === 'number' ? Math.min(Math.max(1, Math.floor(body.limit)), 500) : 100
+  const dryRun = body.dry_run === true
 
   if (query.length < 2) return json({ ok: false, error: 'query required (min 2 chars)', request_id: rid }, 422)
   if (query.length > 240) return json({ ok: false, error: 'query too long (max 240 chars)', request_id: rid }, 422)
@@ -81,17 +82,20 @@ async function executeSearch(req: NextRequest, body: Record<string, unknown>) {
   ])
 
   const durationMs = Date.now() - started
-  const persistence = await Promise.all([
-    persistSearchRun({ request_id: rid, query, city, state, mode: location.mode, requested_mode: requestedMode, intelligence_mode: intelMode, results_count: verified.length, quarantined_count: policy.quarantined.length, sources_used: result.sources_used, duration_ms: durationMs }),
-    persistLeads(verified, query),
-  ])
+  const persistence = dryRun
+    ? [false, false]
+    : await Promise.all([
+        persistSearchRun({ request_id: rid, query, city, state, mode: location.mode, requested_mode: requestedMode, intelligence_mode: intelMode, results_count: verified.length, quarantined_count: policy.quarantined.length, sources_used: result.sources_used, duration_ms: durationMs }),
+        persistLeads(verified, query),
+      ])
 
   const warnings = [location.warning].filter(Boolean) as string[]
+  if (dryRun) warnings.push('Dry-run validation completed without database persistence.')
   if (rate.backend === 'memory') warnings.push('Distributed rate limiting is not configured; preview fallback limiting is active.')
   if (policy.quarantined.length) warnings.push(`${policy.quarantined.length} AI-only or unregistered-source candidate${policy.quarantined.length === 1 ? ' was' : 's were'} quarantined pending corroboration.`)
 
   return json({
-    ok: true, request_id: rid, query, city, state, requested_mode: requestedMode, mode: location.mode,
+    ok: true, dry_run: dryRun, request_id: rid, query, city, state, requested_mode: requestedMode, mode: location.mode,
     location_strategy: location.locationStrategy, intelligence_mode: intelMode, keywords_expanded: result.keywords_expanded,
     types_inferred: inferTypes(query), sources_used: result.sources_used, sources_skipped: result.sources_skipped,
     total_results: verified.length, raw_results: result.leads.length, dedup_removed: result.leads.length - deduped.length,
@@ -115,10 +119,10 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams
   if (!params.get('q') && !params.get('query')) {
-    return json({ status: 'ready', product: 'XPS Intelligence', modes: [...VALID_MODES], intelligence_modes: [...VALID_INTEL], safeguards: ['source-policy', 'ai-quarantine', 'location-guard', 'explainable-score'] })
+    return json({ status: 'ready', product: 'XPS Intelligence', modes: [...VALID_MODES], intelligence_modes: [...VALID_INTEL], safeguards: ['source-policy', 'ai-quarantine', 'location-guard', 'explainable-score', 'dry-run-validation'] })
   }
   return await executeSearch(req, {
     query: params.get('q') || params.get('query') || '', city: params.get('city') || '', state: params.get('state') || '',
-    mode: params.get('mode') || 'quick', intelligence_mode: params.get('intelligence_mode') || 'flash', limit: Number(params.get('limit') || 20),
+    mode: params.get('mode') || 'quick', intelligence_mode: params.get('intelligence_mode') || 'flash', limit: Number(params.get('limit') || 20), dry_run: params.get('dry_run') === 'true',
   })
 }
