@@ -1,268 +1,242 @@
-'use client';
+'use client'
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+import Link from 'next/link'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { ArrowRight, Check, Moon, Search, ShieldCheck, Sparkles, Sun, Target, Zap } from 'lucide-react'
+
+type Theme = 'light' | 'dark'
+type Goal = 'customers' | 'decision-makers' | 'growth' | 'market' | 'competitors' | 'people'
+
+type IntelligenceResult = {
+  company_name: string
+  opportunity_score: number
+  score_confidence: string
+  evidence: Array<{ label: string; value: string }>
+  recommended_action: { label: string; reason: string }
+  lead: { phone?: string; email?: string; website?: string; city?: string; state?: string; source?: string }
+}
+
+type SearchResponse = {
+  ok: boolean
+  error?: string
+  total_results?: number
+  duration_ms?: number
+  intelligence_results?: IntelligenceResult[]
+  warnings?: string[]
+  quarantined_count?: number
+}
+
+const goals: Array<{ id: Goal; label: string; prompt: string }> = [
+  { id: 'customers', label: 'Find Customers', prompt: 'Find companies likely to need my services' },
+  { id: 'decision-makers', label: 'Find Decision-Makers', prompt: 'Find owners and decision-makers at target companies' },
+  { id: 'growth', label: 'Find Growth', prompt: 'Find companies showing expansion or growth signals' },
+  { id: 'market', label: 'Research a Market', prompt: 'Map a market and identify commercial opportunities' },
+  { id: 'competitors', label: 'Analyze Competitors', prompt: 'Find and compare competitors in a market' },
+  { id: 'people', label: 'Find Professionals', prompt: 'Find professionals and specialists in an industry' },
+]
+
+function IntelligenceGlobe() {
+  return (
+    <div className="xps-globe-wrap" aria-hidden="true">
+      <div className="xps-globe-halo" />
+      <svg className="xps-globe" viewBox="0 0 400 400" role="img">
+        <defs>
+          <radialGradient id="sphere" cx="34%" cy="28%" r="72%">
+            <stop offset="0" stopColor="#fff8dc" />
+            <stop offset=".42" stopColor="#d7b55c" />
+            <stop offset="1" stopColor="#80601d" />
+          </radialGradient>
+          <linearGradient id="silver" x1="0" x2="1">
+            <stop offset="0" stopColor="#d7dade" />
+            <stop offset=".5" stopColor="#81878d" />
+            <stop offset="1" stopColor="#f2f3f4" />
+          </linearGradient>
+          <filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <clipPath id="clip"><circle cx="200" cy="200" r="123"/></clipPath>
+        </defs>
+        <circle cx="200" cy="200" r="127" fill="url(#sphere)" stroke="#c39c3e" strokeWidth="2" />
+        <g clipPath="url(#clip)" opacity=".92">
+          <path d="M95 158c36-62 77-83 120-77 37 5 58 22 91 44-27 16-40 39-73 42-32 3-39 25-67 31-29 6-50-10-71-40Z" fill="#101010" opacity=".86"/>
+          <path d="M159 194c33-11 63-7 81 17 14 19 7 44-8 67-17 26-29 45-49 62-9-30-30-52-36-82-5-24-3-47 12-64Z" fill="#171717" opacity=".88"/>
+          <path d="M253 182c25-19 58-17 81 5 15 14 20 35 18 58-30-2-49-11-71-26-12-8-22-20-28-37Z" fill="#101010" opacity=".82"/>
+          {Array.from({ length: 42 }).map((_, i) => {
+            const a = i * 2.399
+            const r = 26 + ((i * 17) % 96)
+            return <circle key={i} cx={200 + Math.cos(a) * r} cy={200 + Math.sin(a) * r * .72} r={i % 7 === 0 ? 2.4 : 1.3} fill="#fff4c2" opacity={i % 3 === 0 ? .95 : .58}/>
+          })}
+          <path d="M82 215C148 142 251 137 326 196M93 256c80-40 161-38 228 6M128 109c52 59 78 130 71 221M242 80c-31 72-32 157 8 238" fill="none" stroke="#f8e7a9" strokeWidth="1.5" opacity=".68"/>
+        </g>
+        <g className="xps-orbit" fill="none" stroke="url(#silver)" strokeWidth="2">
+          <ellipse cx="200" cy="200" rx="174" ry="56" transform="rotate(20 200 200)" />
+          <ellipse cx="200" cy="200" rx="174" ry="56" transform="rotate(-30 200 200)" />
+          <circle cx="356" cy="258" r="5" fill="#f2cf72" stroke="#7c642b" filter="url(#glow)"/>
+        </g>
+        <g className="xps-orbit slow" fill="none" stroke="#aeb3b7" strokeWidth="1.2" opacity=".8">
+          <ellipse cx="200" cy="200" rx="155" ry="42" transform="rotate(72 200 200)" />
+          <circle cx="171" cy="47" r="4" fill="#e6c869" stroke="none"/>
+        </g>
+      </svg>
+    </div>
+  )
+}
 
 export default function Home() {
-  const [currentPlaceholder, setCurrentPlaceholder] = useState('Plumbers in Dallas...');
+  const [theme, setTheme] = useState<Theme>('light')
+  const [goal, setGoal] = useState<Goal>('customers')
+  const [query, setQuery] = useState('')
+  const [city, setCity] = useState('Miami')
+  const [state, setState] = useState('FL')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [response, setResponse] = useState<SearchResponse | null>(null)
 
   useEffect(() => {
-    const placeholders = [
-      'Plumbers in Dallas...',
-      'Roofing contractors in Denver...',
-      'Wedding photographers in Austin...',
-      'Accountants in Chicago...',
-      'Restaurants in Miami...'
-    ];
-    let index = 0;
-    const interval = setInterval(() => {
-      index = (index + 1) % placeholders.length;
-      setCurrentPlaceholder(placeholders[index]);
-    }, 2500);
-    return () => clearInterval(interval);
-  }, []);
+    const stored = window.localStorage.getItem('xps-theme') as Theme | null
+    const preferred: Theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    setTheme(stored || preferred)
+  }, [])
 
-  const industries = [
-    'Plumbing', 'Roofing', 'Flooring', 'Electrical', 'HVAC', 'Landscaping', 'Painting', 'Pest Control',
-    'Photography', 'Accounting', 'Legal', 'Real Estate', 'Restaurants', 'Dental', 'Medical',
-    'Auto Repair', 'Cleaning', 'Gyms', 'Salons', 'Construction', 'Transportation', 'Retail',
-    'Event Planning', 'Catering', 'Insurance', 'Marketing', 'IT Services', 'Tutoring', 'Childcare', 'Pet Services'
-  ];
+  useEffect(() => { window.localStorage.setItem('xps-theme', theme) }, [theme])
+
+  const activeGoal = useMemo(() => goals.find(item => item.id === goal) || goals[0], [goal])
+
+  async function runSearch(event: FormEvent) {
+    event.preventDefault()
+    const mission = query.trim() || activeGoal.prompt
+    setLoading(true)
+    setError('')
+    setResponse(null)
+    try {
+      const result = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: mission, city, state, mode: 'deep', intelligence_mode: 'deep', limit: 24 }),
+      })
+      const data = await result.json() as SearchResponse
+      if (!result.ok || !data.ok) throw new Error(data.error || 'Search could not be completed')
+      setResponse(data)
+    } catch (searchError) {
+      setError(searchError instanceof Error ? searchError.message : 'Search could not be completed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const topResults = response?.intelligence_results?.slice(0, 3) || []
 
   return (
-    <main className="min-h-screen bg-[#ffffff] text-black font-sans flex flex-col selection:bg-[#FFBE00] selection:text-black">
-      {/* NAVIGATION */}
-      <header className="w-full bg-[#ffffff] border-b border-gray-100 py-6 px-6 md:px-12">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="font-black text-2xl tracking-tighter text-black uppercase">
-            XTREME SCRAPER
-          </div>
-          <Link 
-            href="/dashboard"
-            className="text-[#FFBE00] hover:text-[#e6ab00] transition-colors font-black text-sm md:text-base uppercase tracking-wider flex items-center gap-1"
-          >
-            Go to Dashboard &rarr;
+    <main className={`xps-shell ${theme}`}>
+      <header className="xps-header">
+        <div className="xps-container xps-nav">
+          <Link href="/" className="xps-brand" aria-label="XPS Intelligence home">
+            <span className="xps-brand-mark"><span className="xps-brand-x">X</span></span>
+            <span>XPS INTELLIGENCE</span>
           </Link>
+          <nav className="xps-nav-links" aria-label="Primary navigation">
+            <Link href="/product">Product</Link><Link href="/solutions">Solutions</Link><Link href="/industries">Industries</Link><Link href="/pricing">Pricing</Link>
+          </nav>
+          <div className="xps-actions">
+            <button className="xps-button xps-icon-button" aria-label="Toggle theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+              {theme === 'light' ? <Moon size={18}/> : <Sun size={18}/>} 
+            </button>
+            <Link className="xps-button" href="/login">Sign in</Link>
+            <Link className="xps-button primary" href="/signup">Start free</Link>
+          </div>
         </div>
       </header>
 
-      {/* HERO SECTION */}
-      <section className="bg-[#ffffff] text-black py-16 md:py-28 px-6 md:px-12 flex flex-col items-center text-center max-w-5xl mx-auto w-full">
-        {/* Massive Headline */}
-        <h1 className="text-5xl md:text-7xl lg:text-[76px] font-black text-black leading-tight md:leading-none tracking-tighter uppercase max-w-5xl">
-          Find Any Business.<br className="hidden md:inline" /> Any Industry. Any City.
-        </h1>
-
-        {/* Subheadline */}
-        <p className="mt-8 text-lg md:text-xl text-gray-700 max-w-3xl mx-auto font-bold leading-relaxed">
-          Type what you&apos;re looking for &mdash; plumbers, realtors, restaurants, contractors, photographers &mdash; and get a focused list of real businesses with phone numbers, ratings, and addresses. Instantly.
-        </p>
-
-        {/* Animated Visual Placeholder */}
-        <div className="w-full max-w-2xl mx-auto mt-12 mb-8">
-          <div className="relative flex items-center bg-[#ffffff] border-2 border-gray-200 rounded-none h-14 px-4 shadow-sm">
-            <svg className="w-6 h-6 text-gray-400 mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <div className="text-gray-700 text-lg md:text-xl font-bold overflow-hidden whitespace-nowrap text-left flex items-center w-full">
-              <span>{currentPlaceholder}</span>
-              <span className="inline-block w-1.5 h-6 ml-1 bg-[#FFBE00] animate-pulse" />
+      <section className="xps-hero">
+        <div className="xps-container xps-hero-grid">
+          <div>
+            <div className="xps-eyebrow">Verified business intelligence, built for action</div>
+            <h1 className="xps-title">Go Beyond Google.<span>Find What Others Can’t.</span></h1>
+            <p className="xps-lead">Find companies, people, contacts, markets, signals, and opportunities. See the evidence, understand why each result matters, and know what to do next.</p>
+            <div className="xps-promise">
+              <span className="xps-pill">Cross-source discovery</span><span className="xps-pill">Evidence-backed scoring</span><span className="xps-pill">Recommended actions</span><span className="xps-pill">Universal industries</span>
             </div>
-          </div>
-        </div>
 
-        {/* ONE CTA button */}
-        <div className="mb-6">
-          <Link href="/dashboard">
-            <button 
-              style={{ backgroundColor: '#FFBE00' }}
-              className="text-black font-black text-lg md:text-xl px-10 py-5 rounded-none shadow-md transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-2 uppercase tracking-wider"
-            >
-              Search Any Industry Now &rarr;
-            </button>
-          </Link>
-        </div>
-
-        {/* Trust Stats below button */}
-        <p className="text-xs md:text-sm text-gray-500 font-black tracking-widest uppercase">
-          100+ results per search &bull; Phone numbers included &bull; Any city in the US
-        </p>
-      </section>
-
-      {/* INDUSTRY SHOWCASE */}
-      <section className="bg-[#ffffff] py-16 px-6 md:px-12 border-t border-gray-100 w-full">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl md:text-5xl font-black text-black text-center mb-12 tracking-tighter uppercase">
-            Works For Every Industry
-          </h2>
-          <div className="flex flex-wrap justify-center gap-3 max-w-4xl mx-auto">
-            {industries.map((industry) => (
-              <div 
-                key={industry}
-                className="px-4 py-2 rounded-full border border-gray-200 text-black font-bold text-xs md:text-sm hover:bg-[#FFBE00] transition-colors cursor-default"
-              >
-                {industry}
+            <form className="xps-search-panel" onSubmit={runSearch}>
+              <div className="xps-search-main">
+                <input className="xps-input" value={query} onChange={e => setQuery(e.target.value)} placeholder="Describe the result you need..." aria-label="Search mission" />
+                <input className="xps-input" value={city} onChange={e => setCity(e.target.value)} placeholder="City" aria-label="City" />
+                <input className="xps-input" value={state} onChange={e => setState(e.target.value.toUpperCase().slice(0, 2))} placeholder="ST" aria-label="State" />
+                <button className="xps-search-submit" disabled={loading} aria-label="Run intelligence search">{loading ? <Sparkles size={20}/> : <Search size={21}/>}</button>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* HOW IT WORKS */}
-      <section className="bg-[#ffffff] py-20 px-6 md:px-12 border-t border-gray-100 w-full">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl md:text-5xl font-black text-black text-center mb-16 tracking-tighter uppercase">
-            How It Works
-          </h2>
-          <div className="flex flex-col md:flex-row gap-8">
-            {/* Step 1 */}
-            <div className="flex-1 bg-[#ffffff] border border-gray-200 rounded-none p-8 flex flex-col justify-between hover:shadow-md transition-shadow">
-              <div>
-                <div 
-                  style={{ backgroundColor: '#FFBE00' }}
-                  className="w-12 h-12 flex items-center justify-center text-black font-black text-xl mb-6 rounded-none"
-                >
-                  1
+              <div className="xps-goals" aria-label="Search goals">
+                {goals.map(item => <button type="button" key={item.id} onClick={() => { setGoal(item.id); if (!query) setQuery(item.prompt) }} className={`xps-goal ${goal === item.id ? 'active' : ''}`}>{item.label}</button>)}
+              </div>
+              <p className="xps-search-note">XPS Intelligence separates source-backed results from AI-only candidates and explains score confidence.</p>
+              {error && <div className="xps-error">{error}</div>}
+              {(loading || response) && (
+                <div className="xps-results" aria-live="polite">
+                  <div className="xps-results-head">
+                    <strong>{loading ? 'Building the intelligence picture…' : `${response?.total_results || 0} source-backed results`}</strong>
+                    {!loading && <span className="xps-status">{response?.duration_ms || 0}ms · {response?.quarantined_count || 0} AI-only candidates quarantined</span>}
+                  </div>
+                  {!loading && topResults.length > 0 && <div className="xps-results-grid">
+                    {topResults.map(item => (
+                      <article className="xps-result-card" key={`${item.company_name}-${item.opportunity_score}`}>
+                        <div className="xps-result-top"><div><h3>{item.company_name}</h3><div className="xps-result-meta">{item.lead.city}{item.lead.state ? `, ${item.lead.state}` : ''} · {item.lead.source?.replaceAll('_', ' ')}</div></div><div className="xps-score" title={`Score confidence: ${item.score_confidence}`}>{item.opportunity_score}</div></div>
+                        <ul className="xps-evidence">{item.evidence.slice(0, 3).map((e, index) => <li key={index}>{e.label}: {e.value}</li>)}</ul>
+                        <div className="xps-next-action">Next: {item.recommended_action.label}</div>
+                      </article>
+                    ))}
+                  </div>}
+                  {!loading && response?.warnings?.map(warning => <div className="xps-search-note" key={warning}>{warning}</div>)}
                 </div>
-                <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
-                  Tell Us What You Need
-                </h3>
-                <p className="text-gray-600 font-bold leading-relaxed text-sm md:text-base">
-                  Type any industry or business category. Be specific or broad &mdash; we handle both.
-                </p>
-              </div>
-            </div>
+              )}
+            </form>
+          </div>
+          <IntelligenceGlobe />
+        </div>
+      </section>
 
-            {/* Step 2 */}
-            <div className="flex-1 bg-[#ffffff] border border-gray-200 rounded-none p-8 flex flex-col justify-between hover:shadow-md transition-shadow">
-              <div>
-                <div 
-                  style={{ backgroundColor: '#FFBE00' }}
-                  className="w-12 h-12 flex items-center justify-center text-black font-black text-xl mb-6 rounded-none"
-                >
-                  2
-                </div>
-                <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
-                  We Search Everything
-                </h3>
-                <p className="text-gray-600 font-bold leading-relaxed text-sm md:text-base">
-                  Our engine scans Google Maps, BBB, Yellow Pages, and more simultaneously &mdash; filtered to your exact city and industry.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div className="flex-1 bg-[#ffffff] border border-gray-200 rounded-none p-8 flex flex-col justify-between hover:shadow-md transition-shadow">
-              <div>
-                <div 
-                  style={{ backgroundColor: '#FFBE00' }}
-                  className="w-12 h-12 flex items-center justify-center text-black font-black text-xl mb-6 rounded-none"
-                >
-                  3
-                </div>
-                <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
-                  Get Phone-Ready Results
-                </h3>
-                <p className="text-gray-600 font-bold leading-relaxed text-sm md:text-base">
-                  Every result includes business name, phone number, rating, and address. Export or call directly.
-                </p>
-              </div>
-            </div>
+      <section className="xps-section alt" id="difference">
+        <div className="xps-container">
+          <div className="xps-eyebrow">The difference is what happens after search</div>
+          <h2>Pages are not intelligence.</h2>
+          <p className="xps-section-copy">Traditional search leaves you to open tabs, verify companies, locate contacts, compare evidence, and decide what matters. XPS Intelligence structures that work into one traceable decision flow.</p>
+          <div className="xps-compare">
+            <div><h3>Traditional search</h3><ul className="xps-list"><li>Links, ads, and scattered pages</li><li>Manual contact discovery</li><li>Manual verification and prioritization</li><li>No consistent next action</li></ul></div>
+            <div><h3>XPS Intelligence</h3><ul className="xps-list"><li>Structured companies, people, and contacts</li><li>Evidence and source lineage</li><li>Explainable opportunity scores</li><li>Recommended next actions</li></ul></div>
           </div>
         </div>
       </section>
 
-      {/* SOCIAL PROOF STATS BAR */}
-      <section 
-        style={{ backgroundColor: '#FFBE00' }}
-        className="w-full py-16 px-6 md:px-12 text-black"
-      >
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12 md:gap-4 text-center">
-          <div className="flex flex-col items-center flex-1 w-full">
-            <span className="text-5xl md:text-6xl font-black tracking-tight">30+</span>
-            <span className="text-sm font-black mt-2 tracking-widest uppercase">Industries</span>
-          </div>
-          <div className="flex flex-col items-center flex-1 w-full border-t md:border-t-0 md:border-l border-black/10 pt-8 md:pt-0">
-            <span className="text-5xl md:text-6xl font-black tracking-tight">100+</span>
-            <span className="text-sm font-black mt-2 tracking-widest uppercase">Results Per Search</span>
-          </div>
-          <div className="flex flex-col items-center flex-1 w-full border-t md:border-t-0 md:border-l border-black/10 pt-8 md:pt-0">
-            <span className="text-5xl md:text-6xl font-black tracking-tight">56%</span>
-            <span className="text-sm font-black mt-2 tracking-widest uppercase">Have Phone Numbers</span>
-          </div>
-          <div className="flex flex-col items-center flex-1 w-full border-t md:border-t-0 md:border-l border-black/10 pt-8 md:pt-0">
-            <span className="text-5xl md:text-6xl font-black tracking-tight">Any US City</span>
-            <span className="text-sm font-black mt-2 tracking-widest uppercase">Coverage</span>
+      <section className="xps-section">
+        <div className="xps-container">
+          <div className="xps-eyebrow">One system, multiple commercial outcomes</div>
+          <h2>Find it. Understand it. Act on it.</h2>
+          <div className="xps-grid-3">
+            <article className="xps-card"><Target/><div className="xps-card-number">01 · DISCOVER</div><h3>Intent-first intelligence</h3><p>Start with what you are trying to accomplish, not a technical query syntax. XPS translates goals into industries, titles, locations, sources, and search depth.</p></article>
+            <article className="xps-card"><ShieldCheck/><div className="xps-card-number">02 · VERIFY</div><h3>Evidence before claims</h3><p>See what source produced a result, which contact details exist, how fresh the record is, and when more research is required.</p></article>
+            <article className="xps-card"><Zap/><div className="xps-card-number">03 · ACT</div><h3>Next best action</h3><p>Call, email, enrich, save, monitor, export, or disqualify. Recommendations explain why the action is appropriate instead of pretending certainty.</p></article>
           </div>
         </div>
       </section>
 
-      {/* WHO IT'S FOR (3 personas) */}
-      <section className="bg-[#ffffff] py-20 px-6 md:px-12 w-full">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl md:text-5xl font-black text-black text-center mb-16 tracking-tighter uppercase">
-            Who It&apos;s For
-          </h2>
-          <div className="flex flex-col md:flex-row gap-8">
-            {/* Persona 1 */}
-            <div className="flex-1 bg-[#ffffff] border border-gray-200 rounded-none p-8 hover:shadow-md transition-shadow">
-              <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
-                Sales Teams &amp; Lead Gen
-              </h3>
-              <p className="text-gray-600 font-bold leading-relaxed text-sm md:text-base">
-                Build targeted call lists for any territory in minutes. Filter by city, industry, rating.
-              </p>
-            </div>
-
-            {/* Persona 2 */}
-            <div className="flex-1 bg-[#ffffff] border border-gray-200 rounded-none p-8 hover:shadow-md transition-shadow">
-              <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
-                Business Owners &amp; Operators
-              </h3>
-              <p className="text-gray-600 font-bold leading-relaxed text-sm md:text-base">
-                Understand your competitive landscape. Find every competitor and partner in your market.
-              </p>
-            </div>
-
-            {/* Persona 3 */}
-            <div className="flex-1 bg-[#ffffff] border border-gray-200 rounded-none p-8 hover:shadow-md transition-shadow">
-              <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
-                Researchers &amp; Analysts
-              </h3>
-              <p className="text-gray-600 font-bold leading-relaxed text-sm md:text-base">
-                Gather structured business data for market research, reports, or database building.
-              </p>
-            </div>
+      <section className="xps-section alt">
+        <div className="xps-container">
+          <div className="xps-eyebrow">For contractors and every business that sells</div>
+          <h2>Stop losing opportunities while you are doing the work.</h2>
+          <p className="xps-section-copy">Contractor Mode connects intelligence to the practical tools owners care about: a lead-generating presence, fast response, qualification, estimates, reviews, and visible lead attribution. The universal core remains useful for agencies, recruiters, manufacturers, distributors, consultants, and sales teams.</p>
+          <div className="xps-grid-3">
+            {['Find customers and decision-makers','Recover missed calls and follow up','Build estimates and proposals faster','Collect reviews after completed work','Monitor markets and competitor movement','See where every lead came from'].map((label, index) => <div className="xps-card" key={label}><div className="xps-card-number">{String(index + 1).padStart(2, '0')}</div><h3>{label}</h3><p>Designed as a connected business outcome, not an isolated AI novelty.</p></div>)}
           </div>
         </div>
       </section>
 
-      {/* FINAL CTA BAND */}
-      <section className="bg-[#111111] text-white py-24 px-6 md:px-12 text-center w-full">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase mb-4 text-white leading-tight">
-            Your Next 100 Leads Are One Search Away
-          </h2>
-          <p className="text-gray-400 text-lg md:text-xl font-bold mb-10 max-w-2xl mx-auto uppercase tracking-wide">
-            Any industry. Any city. Results in seconds.
-          </p>
-          <div className="flex justify-center">
-            <Link href="/dashboard">
-              <button 
-                style={{ backgroundColor: '#FFBE00' }}
-                className="text-black font-black text-lg md:text-xl px-10 py-5 rounded-none shadow-md transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-2 uppercase tracking-wider"
-              >
-                Start Searching Free &rarr;
-              </button>
-            </Link>
-          </div>
+      <section className="xps-section">
+        <div className="xps-container">
+          <div className="xps-eyebrow">Trust architecture</div>
+          <h2>AI helps investigate. Evidence earns the label.</h2>
+          <p className="xps-section-copy">AI-only business candidates are quarantined until corroborated. Unknown cities never silently inherit another city’s coordinates. Scores expose their evidence and confidence. These safeguards turn a dramatic promise into a defensible product.</p>
+          <div className="xps-promise"><span className="xps-pill"><Check size={14}/> Source policy</span><span className="xps-pill"><Check size={14}/> AI quarantine</span><span className="xps-pill"><Check size={14}/> Location safety</span><span className="xps-pill"><Check size={14}/> Explainable scoring</span></div>
+          <div style={{ marginTop: 34 }}><Link href="/signup" className="xps-button primary">Start with a real search <ArrowRight size={16} style={{ display: 'inline', marginLeft: 6 }}/></Link></div>
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="w-full py-8 text-center bg-[#ffffff] border-t border-gray-100 text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wider">
-        &copy; 2026 Strategic Minds Advisory. All rights reserved.
-      </footer>
+      <footer className="xps-footer"><div className="xps-container xps-footer-row"><span className="xps-brand"><span className="xps-brand-mark"><span className="xps-brand-x">X</span></span><span>XPS INTELLIGENCE</span></span><span>© 2026 Strategic Minds · Evidence before claims.</span></div></footer>
     </main>
-  );
+  )
 }
