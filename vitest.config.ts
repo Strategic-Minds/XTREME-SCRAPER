@@ -5,7 +5,6 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/unit/**/*.test.ts'],
-    coverage: { enabled: false },
   },
   resolve: {
     alias: {
