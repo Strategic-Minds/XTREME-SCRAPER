@@ -1,0 +1,62 @@
+name: XPS Intelligence CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - 'auto-builder/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package.json
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+      - name: Reject unsafe authentication fallback
+        run: |
+          ! grep -R "xps-dev-secret-change-in-prod" -n app lib || (echo "Unsafe JWT fallback found" && exit 1)
+      - name: Verify search safety gates are wired
+        run: |
+          grep -q "protectLocationMode" app/api/search/route.ts
+          grep -q "partitionBySourcePolicy" app/api/search/route.ts
+          grep -q "buildIntelligenceResults" app/api/search/route.ts
+      - name: Unit tests
+        run: npm test
+      - name: Capture type-check diagnostics
+        id: typecheck
+        shell: bash
+        run: |
+          set +e
+          npm run typecheck > typecheck.log 2>&1
+          code=$?
+          cat typecheck.log
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload type-check diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: typecheck-diagnostics
+          path: typecheck.log
+          if-no-files-found: error
+          retention-days: 3
+      - name: Production build
+        env:
+          JWT_SECRET: ci-only-secret-ci-only-secret-1234567890
+        run: npm run build
+      - name: Enforce type-check result
+        if: steps.typecheck.outputs.exit_code != '0'
+        run: |
+          echo "TypeScript diagnostics are available in the typecheck-diagnostics artifact."
+          exit 1

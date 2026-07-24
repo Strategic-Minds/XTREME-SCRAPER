@@ -1,37 +1,18 @@
 import { NextResponse } from 'next/server'
+
 export const dynamic = 'force-dynamic'
 
-const SB_URL  = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-const GM_KEY  = process.env.GOOGLE_MAPS_API_KEY || ''
-const AI_KEY  = process.env.AI_GATEWAY_API_KEY || ''
-const AP_KEY  = process.env.APOLLO_API_KEY_2 || ''
-
 export async function GET() {
-  const start = Date.now()
-  let db = false
-  try {
-    const r = await fetch(`${SB_URL}/rest/v1/xps_leads?select=count&limit=1`, {
-      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }, cache: 'no-store',
-      signal: AbortSignal.timeout(5000)
-    })
-    db = r.ok
-  } catch {}
-
+  const required = ['JWT_SECRET', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']
+  const optional = ['GOOGLE_MAPS_API_KEY', 'APOLLO_API_KEY_2', 'FIRECRAWL_API_KEY', 'BROWSER_WORKER_SECRET', 'AI_GATEWAY_API_KEY', 'UPSTASH_REDIS_REST_URL']
+  const missingRequired = required.filter(name => !process.env[name])
   return NextResponse.json({
-    status:     'healthy',
-    version:    '3.1.0',
-    db_connected:   db,
-    configured: {
-      google_maps: !!GM_KEY,
-      ai_gateway:  !!AI_KEY,
-      apollo:      !!AP_KEY,
-      yelp:        !!process.env.YELP_API_KEY,
-      bing_maps:   !!process.env.BING_MAPS_KEY,
-    },
-    ts:         new Date().toISOString(),
-    latency_ms: Date.now() - start,
-  }, {
-    headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }
-  })
+    ok: missingRequired.length === 0,
+    product: 'XPS Intelligence',
+    version: '1.1.0-preview',
+    status: missingRequired.length ? 'degraded' : 'ready',
+    required_configuration: { configured: required.filter(name => !!process.env[name]), missing: missingRequired },
+    optional_capabilities: Object.fromEntries(optional.map(name => [name, Boolean(process.env[name])])),
+    timestamp: new Date().toISOString(),
+  }, { status: missingRequired.length ? 503 : 200, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } })
 }

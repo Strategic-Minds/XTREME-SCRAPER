@@ -1,0 +1,5 @@
+import WorkspacePage from '@/components/WorkspacePage'
+
+export default function ExportsPage() {
+  return <WorkspacePage title="Exports" eyebrow="Governed data handoff" description="Export only source-backed records through a fixed field allowlist. Spreadsheet formulas are neutralized and AI-only candidates are excluded." cards={[{title:'CSV export',copy:'Company, business contacts, location, source, confidence, and opportunity score with spreadsheet-injection protection.',status:'IMPLEMENTED'},{title:'CRM handoff',copy:'Typed company and contact adapters with idempotency, audit receipts, and plan enforcement.',status:'GATED'},{title:'Privacy review',copy:'Export scope, fields, organization ownership, and intended use must satisfy the active policy.'}]} emptyTitle="Run a search to create an export" emptyCopy="Verified result sets can be exported directly from the Search workspace. Preview exports are capped and do not write an export job to the database." actionLabel="Search and export" />
+}

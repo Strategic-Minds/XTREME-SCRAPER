@@ -1,0 +1,5 @@
+import WorkspacePage from '@/components/WorkspacePage'
+
+export default function SignalsPage() {
+  return <WorkspacePage title="Signals" eyebrow="Dated business events" description="Signals become useful when the event, source, entity match, retrieval time, and freshness window remain visible together." cards={[{title:'Growth signals',copy:'New locations, hiring, funding, leadership changes, product launches, and facility activity when supported by dated evidence.'},{title:'Risk signals',copy:'License changes, negative review movement, legal references, closures, and contradictory source records, presented without unsupported conclusions.'},{title:'Freshness controls',copy:'Signals expire or require re-verification based on their source and event type.'}]} emptyTitle="No monitored signals" emptyCopy="Create a saved search and alert after the approved persistence migration is available. Preview mode does not pretend that monitoring is already running." notice="Durable alert workers and signal persistence remain blocked until the development database schema, RLS policies, and queue leases are approved." actionLabel="Run a signal search" />
+}
