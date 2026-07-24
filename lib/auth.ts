@@ -1,13 +1,12 @@
 /**
- * XTREME SCRAPER — Auth Engine
- * JWT magic-link authentication. No passwords. No OAuth complexity.
+ * XPS Intelligence authentication engine.
+ * Magic-link authentication with fail-closed JWT configuration.
  */
 import { SignJWT, jwtVerify } from 'jose'
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'xps-dev-secret-change-in-prod')
-const COOKIE_NAME = 'xps_token'
-const SB_URL  = process.env.SUPABASE_URL || ''
+const SB_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const SB_SKEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+export const COOKIE_NAME = 'xps_token'
 
 export type Plan = 'anonymous' | 'free_trial' | 'starter' | 'pro' | 'elite'
 
@@ -27,155 +26,142 @@ export interface XPSUser {
 }
 
 export interface SessionPayload {
-  sub: string   // user id
+  sub: string
   email: string
   plan: Plan
+  session_version?: number
   iat: number
   exp: number
 }
 
-const sbHeaders = () => ({
-  'apikey': SB_SKEY,
-  'Authorization': `Bearer ${SB_SKEY}`,
-  'Content-Type': 'application/json',
-  'Prefer': 'return=representation'
-})
+function jwtSecret(): Uint8Array {
+  const value = process.env.JWT_SECRET || ''
+  if (value.length < 32) throw new Error('JWT_SECRET must be configured with at least 32 characters')
+  return new TextEncoder().encode(value)
+}
 
-// Sign a JWT
+function sbHeaders(prefer = 'return=representation') {
+  if (!SB_URL || !SB_SKEY) throw new Error('Supabase server configuration is incomplete')
+  return {
+    apikey: SB_SKEY,
+    Authorization: `Bearer ${SB_SKEY}`,
+    'Content-Type': 'application/json',
+    Prefer: prefer,
+  }
+}
+
+async function readRows<T>(path: string): Promise<T[]> {
+  if (!SB_URL || !SB_SKEY) return []
+  const response = await fetch(`${SB_URL}/rest/v1/${path}`, { headers: sbHeaders(), cache: 'no-store' })
+  if (!response.ok) return []
+  return await response.json() as T[]
+}
+
 export async function signToken(payload: Omit<SessionPayload, 'iat' | 'exp'>): Promise<string> {
   return new SignJWT(payload as Record<string, unknown>)
-    .setProtectedHeader({ alg: 'HS256' })
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setIssuedAt()
     .setExpirationTime('7d')
-    .sign(JWT_SECRET)
+    .sign(jwtSecret())
 }
 
-// Verify a JWT
 export async function verifyToken(token: string): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET)
+    const { payload } = await jwtVerify(token, jwtSecret(), { algorithms: ['HS256'] })
     return payload as unknown as SessionPayload
-  } catch { return null }
+  } catch {
+    return null
+  }
 }
 
-// Get user from Supabase by id
 export async function getUserById(id: string): Promise<XPSUser | null> {
-  if (!SB_URL || !SB_SKEY) return null
-  try {
-    const r = await fetch(`${SB_URL}/rest/v1/xps_users?id=eq.${id}&limit=1`, { headers: sbHeaders() })
-    const rows = await r.json()
-    return rows?.[0] || null
-  } catch { return null }
+  const rows = await readRows<XPSUser>(`xps_users?id=eq.${encodeURIComponent(id)}&limit=1`)
+  return rows[0] || null
 }
 
-// Get user from Supabase by email
 export async function getUserByEmail(email: string): Promise<XPSUser | null> {
-  if (!SB_URL || !SB_SKEY) return null
-  try {
-    const r = await fetch(`${SB_URL}/rest/v1/xps_users?email=eq.${encodeURIComponent(email)}&limit=1`, { headers: sbHeaders() })
-    const rows = await r.json()
-    return rows?.[0] || null
-  } catch { return null }
+  const rows = await readRows<XPSUser>(`xps_users?email=eq.${encodeURIComponent(email)}&limit=1`)
+  return rows[0] || null
 }
 
-// Create a new user
 export async function createUser(email: string, name?: string): Promise<XPSUser | null> {
   if (!SB_URL || !SB_SKEY) return null
-  try {
-    const r = await fetch(`${SB_URL}/rest/v1/xps_users`, {
-      method: 'POST', headers: sbHeaders(),
-      body: JSON.stringify({ email, full_name: name || '', plan: 'free_trial', plan_status: 'active' })
-    })
-    const rows = await r.json()
-    return rows?.[0] || null
-  } catch { return null }
+  const response = await fetch(`${SB_URL}/rest/v1/xps_users`, {
+    method: 'POST',
+    headers: sbHeaders(),
+    body: JSON.stringify({ email, full_name: name || '', plan: 'free_trial', plan_status: 'active' }),
+  })
+  if (!response.ok) return null
+  const rows = await response.json() as XPSUser[]
+  return rows[0] || null
 }
 
-// Upsert user (create or return existing)
 export async function upsertUser(email: string): Promise<XPSUser | null> {
-  const existing = await getUserByEmail(email)
-  if (existing) return existing
-  return createUser(email)
+  return await getUserByEmail(email) || await createUser(email)
 }
 
-// Create magic link token
 export async function createMagicLink(email: string): Promise<string | null> {
   if (!SB_URL || !SB_SKEY) return null
-  try {
-    const token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '')
-    const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15 min
-    await fetch(`${SB_URL}/rest/v1/xps_magic_links`, {
-      method: 'POST', headers: sbHeaders(),
-      body: JSON.stringify({ email, token, expires_at: expires })
-    })
-    return token
-  } catch { return null }
+  const token = `${crypto.randomUUID().replaceAll('-', '')}${crypto.randomUUID().replaceAll('-', '')}`
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString()
+  const response = await fetch(`${SB_URL}/rest/v1/xps_magic_links`, {
+    method: 'POST',
+    headers: sbHeaders('return=minimal'),
+    body: JSON.stringify({ email, token, expires_at: expiresAt, used: false }),
+  })
+  return response.ok ? token : null
 }
 
-// Verify magic link and return user
 export async function consumeMagicLink(token: string): Promise<XPSUser | null> {
-  if (!SB_URL || !SB_SKEY) return null
-  try {
-    const r = await fetch(`${SB_URL}/rest/v1/xps_magic_links?token=eq.${token}&used=eq.false&limit=1`, { headers: sbHeaders() })
-    const rows = await r.json()
-    const link = rows?.[0]
-    if (!link) return null
-    if (new Date(link.expires_at) < new Date()) return null
-    // Mark used
-    await fetch(`${SB_URL}/rest/v1/xps_magic_links?id=eq.${link.id}`, {
-      method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ used: true })
-    })
-    return upsertUser(link.email)
-  } catch { return null }
+  if (!SB_URL || !SB_SKEY || token.length < 40) return null
+  const rows = await readRows<{ id: string; email: string; expires_at: string }>(
+    `xps_magic_links?token=eq.${encodeURIComponent(token)}&used=eq.false&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&limit=1`,
+  )
+  const link = rows[0]
+  if (!link) return null
+
+  const response = await fetch(`${SB_URL}/rest/v1/xps_magic_links?id=eq.${encodeURIComponent(link.id)}&used=eq.false`, {
+    method: 'PATCH',
+    headers: sbHeaders('return=representation'),
+    body: JSON.stringify({ used: true, used_at: new Date().toISOString() }),
+  })
+  if (!response.ok) return null
+  const updated = await response.json() as unknown[]
+  if (!updated.length) return null
+  return await upsertUser(link.email)
 }
 
-// Send magic link email via Resend
 export async function sendMagicLinkEmail(email: string, token: string, baseUrl: string): Promise<boolean> {
   const resendKey = process.env.RESEND_API_KEY || ''
-  if (!resendKey) { console.warn('[auth] No RESEND_API_KEY'); return false }
-  const link = `${baseUrl}/api/auth/verify?token=${token}`
-  try {
-    const r = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: 'XTREME SCRAPER <noreply@strategicmindsadvisory.com>',
-        to: [email],
-        subject: 'Your XTREME SCRAPER login link',
-        html: `
-          <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:40px 20px">
-            <h1 style="font-size:28px;font-weight:900;color:#111">XTREME SCRAPER</h1>
-            <p style="color:#6B7280;font-size:14px;margin-bottom:32px">Go Beyond Google</p>
-            <p style="color:#111;font-size:16px;margin-bottom:24px">Click the button below to sign in. This link expires in 15 minutes.</p>
-            <a href="${link}" style="display:inline-block;background:#FFBE00;color:#111;font-weight:900;font-size:16px;padding:16px 32px;border-radius:12px;text-decoration:none">Sign In →</a>
-            <p style="color:#9CA3AF;font-size:12px;margin-top:32px">If you didn't request this, ignore this email.</p>
-          </div>
-        `
-      })
-    })
-    return r.ok
-  } catch { return false }
+  if (!resendKey) return false
+  const link = `${baseUrl}/api/auth/verify?token=${encodeURIComponent(token)}`
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: process.env.AUTH_FROM_EMAIL || 'XPS Intelligence <noreply@strategicmindsadvisory.com>',
+      to: [email],
+      subject: 'Your XPS Intelligence sign-in link',
+      html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:40px"><h1>XPS Intelligence</h1><p>Go Beyond Google. Find What Others Can't.</p><p>This secure sign-in link expires in 15 minutes.</p><a href="${link}" style="display:inline-block;background:#c9a44f;color:#111;padding:14px 24px;border-radius:999px;font-weight:700;text-decoration:none">Sign in securely</a></div>`,
+    }),
+  })
+  return response.ok
 }
 
-// Increment usage counter for a user
 export async function incrementUsage(userId: string, action: 'search' | 'enrich'): Promise<void> {
-  if (!SB_URL || !SB_SKEY || !userId) return
-  const today = new Date().toISOString().split('T')[0]
-  try {
-    const user = await getUserById(userId)
-    if (!user) return
-    const isNewDay = user.last_search_date !== today
-    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
-    if (action === 'search') {
-      patch.searches_today    = isNewDay ? 1 : (user.searches_today + 1)
-      patch.searches_this_month = user.searches_this_month + 1
-      patch.last_search_date = today
-    } else {
-      patch.enrichments_today = isNewDay ? 1 : (user.enrichments_today + 1)
-    }
-    if (isNewDay) patch.searches_today = action === 'search' ? 1 : 0
-    await fetch(`${SB_URL}/rest/v1/xps_users?id=eq.${userId}`, {
-      method: 'PATCH', headers: sbHeaders(), body: JSON.stringify(patch)
-    })
-  } catch (e) { console.error('[incrementUsage]', e) }
+  const user = await getUserById(userId)
+  if (!user || !SB_URL || !SB_SKEY) return
+  const today = new Date().toISOString().slice(0, 10)
+  const newDay = user.last_search_date !== today
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (action === 'search') {
+    patch.searches_today = newDay ? 1 : (user.searches_today || 0) + 1
+    patch.searches_this_month = (user.searches_this_month || 0) + 1
+    patch.last_search_date = today
+  } else {
+    patch.enrichments_today = newDay ? 1 : (user.enrichments_today || 0) + 1
+  }
+  await fetch(`${SB_URL}/rest/v1/xps_users?id=eq.${encodeURIComponent(userId)}`, {
+    method: 'PATCH', headers: sbHeaders('return=minimal'), body: JSON.stringify(patch),
+  })
 }
