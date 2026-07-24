@@ -1,268 +1,443 @@
-'use client';
+'use client'
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
+import './intelora.css'
+import {
+  ArrowRight,
+  Grid2X2,
+  Loader2,
+  MapPin,
+  Menu,
+  Moon,
+  Search,
+  Sun,
+  X,
+} from 'lucide-react'
 
-export default function Home() {
-  const [currentPlaceholder, setCurrentPlaceholder] = useState('Plumbers in Dallas...');
+type Theme = 'dark' | 'light'
 
-  useEffect(() => {
-    const placeholders = [
-      'Plumbers in Dallas...',
-      'Roofing contractors in Denver...',
-      'Wedding photographers in Austin...',
-      'Accountants in Chicago...',
-      'Restaurants in Miami...'
-    ];
-    let index = 0;
-    const interval = setInterval(() => {
-      index = (index + 1) % placeholders.length;
-      setCurrentPlaceholder(placeholders[index]);
-    }, 2500);
-    return () => clearInterval(interval);
-  }, []);
+type Lead = {
+  company_name: string
+  phone?: string
+  email?: string
+  website?: string
+  address?: string
+  city?: string
+  state?: string
+  rating?: number
+  review_count?: number
+  source?: string
+}
 
-  const industries = [
-    'Plumbing', 'Roofing', 'Flooring', 'Electrical', 'HVAC', 'Landscaping', 'Painting', 'Pest Control',
-    'Photography', 'Accounting', 'Legal', 'Real Estate', 'Restaurants', 'Dental', 'Medical',
-    'Auto Repair', 'Cleaning', 'Gyms', 'Salons', 'Construction', 'Transportation', 'Retail',
-    'Event Planning', 'Catering', 'Insurance', 'Marketing', 'IT Services', 'Tutoring', 'Childcare', 'Pet Services'
-  ];
+type SearchResponse = {
+  ok: boolean
+  error?: string
+  total_results?: number
+  duration_ms?: number
+  results?: Lead[]
+}
+
+const LOCATIONS = [
+  { label: 'Global', city: 'United States', state: '' },
+  { label: 'Phoenix, AZ', city: 'Phoenix', state: 'AZ' },
+  { label: 'Miami, FL', city: 'Miami', state: 'FL' },
+  { label: 'Dallas, TX', city: 'Dallas', state: 'TX' },
+  { label: 'New York, NY', city: 'New York', state: 'NY' },
+  { label: 'Los Angeles, CA', city: 'Los Angeles', state: 'CA' },
+]
+
+const CATEGORIES = [
+  'All Categories',
+  'Companies',
+  'People',
+  'Industries',
+  'Products',
+  'Markets',
+  'Technologies',
+  'Opportunities',
+]
+
+const SUGGESTION_LIBRARY = [
+  'Companies developing solid-state batteries in Europe',
+  'Market trends in autonomous logistics 2025',
+  'Top materials for next-generation AI chips',
+  'Fast-growing construction companies in Florida',
+  'Decision makers at renewable energy companies',
+  'Businesses with verified phones but no website',
+  'Emerging technologies receiving recent investment',
+  'Local service companies expanding into new markets',
+]
+
+function ElectricGlobe({ pulse }: { pulse: number }) {
+  const arcs = [
+    'M110 330 C180 220 250 165 345 122',
+    'M118 420 C240 360 350 330 455 210',
+    'M160 520 C270 450 430 470 565 330',
+    'M245 135 C340 230 480 185 650 110',
+    'M330 630 C410 510 560 510 690 400',
+    'M390 195 C455 290 565 300 710 250',
+    'M505 160 C560 245 655 270 745 350',
+    'M465 430 C540 390 625 415 744 515',
+  ]
+
+  const bolts = [
+    'M390 398 L360 330 L386 344 L372 280 L420 355 L394 342 Z',
+    'M390 398 L304 404 L328 386 L270 368 L358 372 L340 392 Z',
+    'M390 398 L432 462 L428 430 L478 480 L420 412 L450 420 Z',
+    'M390 398 L468 350 L438 356 L505 300 L414 374 L446 370 Z',
+    'M390 398 L402 300 L384 328 L404 230 L418 354 L428 326 Z',
+  ]
 
   return (
-    <main className="min-h-screen bg-[#ffffff] text-black font-sans flex flex-col selection:bg-[#FFBE00] selection:text-black">
-      {/* NAVIGATION */}
-      <header className="w-full bg-[#ffffff] border-b border-gray-100 py-6 px-6 md:px-12">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="font-black text-2xl tracking-tighter text-black uppercase">
-            XTREME SCRAPER
-          </div>
-          <Link 
-            href="/dashboard"
-            className="text-[#FFBE00] hover:text-[#e6ab00] transition-colors font-black text-sm md:text-base uppercase tracking-wider flex items-center gap-1"
+    <div className="globe-stage" aria-hidden="true">
+      <svg className="globe-svg" viewBox="0 0 800 800" role="img">
+        <defs>
+          <radialGradient id="planet" cx="36%" cy="30%" r="72%">
+            <stop offset="0%" stopColor="#173b68" />
+            <stop offset="46%" stopColor="#071a34" />
+            <stop offset="100%" stopColor="#01050c" />
+          </radialGradient>
+          <radialGradient id="impact" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+            <stop offset="24%" stopColor="#7ee8ff" stopOpacity="1" />
+            <stop offset="62%" stopColor="#009dff" stopOpacity=".68" />
+            <stop offset="100%" stopColor="#009dff" stopOpacity="0" />
+          </radialGradient>
+          <pattern id="dots" width="10" height="10" patternUnits="userSpaceOnUse">
+            <circle cx="2" cy="2" r="1.2" fill="#58c8ff" opacity=".6" />
+          </pattern>
+          <filter id="blueGlow" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="18" />
+          </filter>
+          <clipPath id="sphereClip">
+            <circle cx="400" cy="400" r="292" />
+          </clipPath>
+        </defs>
+
+        <circle cx="400" cy="400" r="335" fill="#007aff" opacity=".16" filter="url(#softGlow)" />
+        <circle cx="400" cy="400" r="304" fill="url(#planet)" stroke="#22b7ff" strokeWidth="5" />
+        <circle cx="400" cy="400" r="314" fill="none" stroke="#4ad7ff" strokeOpacity=".34" strokeWidth="2" />
+
+        <g clipPath="url(#sphereClip)">
+          <path className="continent" d="M255 188 L325 154 L385 174 L428 225 L402 270 L354 278 L332 330 L285 312 L238 260 Z" />
+          <path className="continent continent-dots" d="M310 332 L384 310 L432 342 L455 405 L430 472 L395 535 L350 560 L322 505 L294 446 L280 390 Z" />
+          <path className="continent" d="M424 176 L512 148 L620 182 L670 245 L640 300 L575 315 L538 365 L464 338 L435 276 Z" />
+          <path className="continent continent-dots" d="M560 340 L642 328 L700 374 L688 438 L620 462 L568 420 Z" />
+          <path className="continent" d="M165 250 L245 220 L275 270 L240 318 L188 300 Z" />
+          <path className="continent continent-dots" d="M190 340 L245 350 L260 430 L224 496 L176 455 L158 392 Z" />
+          <path className="continent" d="M625 520 L682 532 L704 580 L660 610 L610 585 Z" />
+
+          {arcs.map((path) => (
+            <path key={path} d={path} className="network-line" />
+          ))}
+
+          {Array.from({ length: 72 }).map((_, index) => {
+            const angle = (index / 72) * Math.PI * 2
+            const radius = 105 + ((index * 37) % 165)
+            const x = 400 + Math.cos(angle) * radius
+            const y = 400 + Math.sin(angle) * radius * 0.86
+            return <circle key={index} cx={x} cy={y} r={index % 5 === 0 ? 2.4 : 1.2} fill="#73d9ff" opacity={index % 4 === 0 ? .95 : .48} />
+          })}
+        </g>
+
+        <g key={pulse} className="electric-burst" filter="url(#blueGlow)">
+          {bolts.map((path) => <path key={path} d={path} className="bolt" />)}
+          <circle cx="390" cy="398" r="92" fill="url(#impact)" opacity=".9" />
+          <circle cx="390" cy="398" r="12" fill="#ffffff" />
+        </g>
+      </svg>
+    </div>
+  )
+}
+
+export default function Home() {
+  const [theme, setTheme] = useState<Theme>('dark')
+  const [mobileMenu, setMobileMenu] = useState(false)
+  const [query, setQuery] = useState('')
+  const [locationIndex, setLocationIndex] = useState(0)
+  const [category, setCategory] = useState(CATEGORIES[0])
+  const [suggestionsOpen, setSuggestionsOpen] = useState(true)
+  const [activeSuggestion, setActiveSuggestion] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [result, setResult] = useState<SearchResponse | null>(null)
+  const [pulse, setPulse] = useState(0)
+  const abortRef = useRef<AbortController | null>(null)
+  const heroRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem('intelora-theme') as Theme | null
+    const systemTheme: Theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+    setTheme(stored || systemTheme)
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    window.localStorage.setItem('intelora-theme', theme)
+  }, [theme])
+
+  const suggestions = useMemo(() => {
+    const normalized = query.toLowerCase().trim()
+    if (!normalized) return SUGGESTION_LIBRARY.slice(0, 3)
+    const matched = SUGGESTION_LIBRARY.filter((item) => item.toLowerCase().includes(normalized))
+    const inferred = [
+      `${query} with verified contacts`,
+      `${query} showing recent growth signals`,
+      `${query} hidden from ordinary search`,
+    ]
+    return [...matched, ...inferred].filter((item, index, all) => all.indexOf(item) === index).slice(0, 5)
+  }, [query])
+
+  useEffect(() => {
+    setActiveSuggestion(0)
+  }, [query])
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = ((event.clientX - rect.left) / rect.width - 0.5) * 14
+    const y = ((event.clientY - rect.top) / rect.height - 0.5) * 12
+    event.currentTarget.style.setProperty('--pointer-x', `${x}px`)
+    event.currentTarget.style.setProperty('--pointer-y', `${y}px`)
+  }
+
+  const resetPointer = (event: React.PointerEvent<HTMLElement>) => {
+    event.currentTarget.style.setProperty('--pointer-x', '0px')
+    event.currentTarget.style.setProperty('--pointer-y', '0px')
+  }
+
+  const runSearch = async (value?: string) => {
+    const finalQuery = (value || query).trim()
+    if (finalQuery.length < 2) {
+      setError('Type at least two characters.')
+      return
+    }
+
+    const selectedLocation = LOCATIONS[locationIndex]
+    const categorySuffix = category === 'All Categories' ? '' : ` ${category.toLowerCase()}`
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    setQuery(finalQuery)
+    setSuggestionsOpen(false)
+    setLoading(true)
+    setError('')
+    setResult(null)
+    setPulse((current) => current + 1)
+
+    try {
+      const response = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          query: `${finalQuery}${categorySuffix}`.trim(),
+          city: selectedLocation.city,
+          state: selectedLocation.state,
+          mode: 'quick',
+          intelligence_mode: 'flash',
+          limit: 40,
+        }),
+      })
+
+      const data = await response.json() as SearchResponse
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Search failed')
+      setResult(data)
+      setPulse((current) => current + 1)
+    } catch (searchError) {
+      if ((searchError as Error).name !== 'AbortError') {
+        setError((searchError as Error).message || 'Search failed. Try again.')
+      }
+    } finally {
+      if (!controller.signal.aborted) setLoading(false)
+    }
+  }
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault()
+    void runSearch()
+  }
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (!suggestionsOpen || suggestions.length === 0) return
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setActiveSuggestion((current) => (current + 1) % suggestions.length)
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      setActiveSuggestion((current) => (current - 1 + suggestions.length) % suggestions.length)
+    }
+    if (event.key === 'Escape') setSuggestionsOpen(false)
+    if (event.key === 'Enter' && suggestionsOpen) {
+      event.preventDefault()
+      void runSearch(suggestions[activeSuggestion])
+    }
+  }
+
+  const topResults = result?.results?.slice(0, 6) || []
+
+  return (
+    <main className={`intelora-shell ${theme}`}>
+      <header className="site-header">
+        <Link href="/" className="brand" aria-label="Intelora home">
+          <span className="brand-orbit" />
+          <span>INTELORA</span>
+        </Link>
+
+        <nav className="desktop-nav" aria-label="Primary navigation">
+          <Link href="/dashboard">Product</Link>
+          <Link href="/dashboard">Solutions</Link>
+          <Link href="/memory">Resources</Link>
+          <Link href="/dashboard">Pricing</Link>
+        </nav>
+
+        <div className="header-actions">
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           >
-            Go to Dashboard &rarr;
-          </Link>
+            <Moon size={17} />
+            <span className={theme === 'light' ? 'toggle-thumb light' : 'toggle-thumb'}>
+              <Sun size={17} />
+            </span>
+          </button>
+          <Link href="/auth" className="sign-in">Sign in</Link>
+          <Link href="/dashboard" className="primary-cta">Get Started Free</Link>
+          <button type="button" className="mobile-menu-button" onClick={() => setMobileMenu(true)} aria-label="Open menu">
+            <Menu />
+          </button>
         </div>
       </header>
 
-      {/* HERO SECTION */}
-      <section className="bg-[#ffffff] text-black py-16 md:py-28 px-6 md:px-12 flex flex-col items-center text-center max-w-5xl mx-auto w-full">
-        {/* Massive Headline */}
-        <h1 className="text-5xl md:text-7xl lg:text-[76px] font-black text-black leading-tight md:leading-none tracking-tighter uppercase max-w-5xl">
-          Find Any Business.<br className="hidden md:inline" /> Any Industry. Any City.
-        </h1>
+      {mobileMenu && (
+        <div className="mobile-menu">
+          <button type="button" onClick={() => setMobileMenu(false)} aria-label="Close menu"><X /></button>
+          <Link href="/dashboard">Product</Link>
+          <Link href="/dashboard">Solutions</Link>
+          <Link href="/memory">Resources</Link>
+          <Link href="/dashboard">Pricing</Link>
+          <Link href="/auth">Sign in</Link>
+        </div>
+      )}
 
-        {/* Subheadline */}
-        <p className="mt-8 text-lg md:text-xl text-gray-700 max-w-3xl mx-auto font-bold leading-relaxed">
-          Type what you&apos;re looking for &mdash; plumbers, realtors, restaurants, contractors, photographers &mdash; and get a focused list of real businesses with phone numbers, ratings, and addresses. Instantly.
-        </p>
+      <section
+        ref={heroRef}
+        className="hero"
+        onPointerMove={handlePointerMove}
+        onPointerLeave={resetPointer}
+      >
+        <div className="hero-copy">
+          <h1>
+            <span>Go Beyond Google.</span>
+            <strong>Find What Others Can’t.</strong>
+          </h1>
+          <p>AI that understands. Answers that matter.</p>
 
-        {/* Animated Visual Placeholder */}
-        <div className="w-full max-w-2xl mx-auto mt-12 mb-8">
-          <div className="relative flex items-center bg-[#ffffff] border-2 border-gray-200 rounded-none h-14 px-4 shadow-sm">
-            <svg className="w-6 h-6 text-gray-400 mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <div className="text-gray-700 text-lg md:text-xl font-bold overflow-hidden whitespace-nowrap text-left flex items-center w-full">
-              <span>{currentPlaceholder}</span>
-              <span className="inline-block w-1.5 h-6 ml-1 bg-[#FFBE00] animate-pulse" />
+          <form className="search-stack" onSubmit={handleSubmit}>
+            <div className="search-field">
+              <Search size={29} strokeWidth={2} />
+              <input
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value)
+                  setSuggestionsOpen(true)
+                }}
+                onFocus={() => setSuggestionsOpen(true)}
+                onKeyDown={handleKeyDown}
+                placeholder="What are you looking for?"
+                aria-label="Search"
+                autoComplete="off"
+              />
+              <button type="submit" disabled={loading} aria-label="Run search">
+                {loading ? <Loader2 className="spin" size={27} /> : <ArrowRight size={29} />}
+              </button>
             </div>
-          </div>
+
+            <div className="filter-row">
+              <label>
+                <MapPin size={22} />
+                <select value={locationIndex} onChange={(event) => setLocationIndex(Number(event.target.value))} aria-label="Location">
+                  {LOCATIONS.map((location, index) => <option key={location.label} value={index}>{location.label}</option>)}
+                </select>
+              </label>
+              <label>
+                <Grid2X2 size={22} />
+                <select value={category} onChange={(event) => setCategory(event.target.value)} aria-label="Category">
+                  {CATEGORIES.map((item) => <option key={item}>{item}</option>)}
+                </select>
+              </label>
+            </div>
+
+            {suggestionsOpen && (
+              <div className="suggestions" role="listbox" aria-label="Search suggestions">
+                {suggestions.slice(0, 3).map((suggestion, index) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    role="option"
+                    aria-selected={activeSuggestion === index}
+                    className={activeSuggestion === index ? 'active' : ''}
+                    onMouseEnter={() => setActiveSuggestion(index)}
+                    onClick={() => void runSearch(suggestion)}
+                  >
+                    <span className="suggestion-icon" />
+                    <span>{suggestion}</span>
+                    <ArrowRight size={21} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </form>
+
+          {error && <p className="search-message error">{error}</p>}
+          {result?.ok && <p className="search-message success">{result.total_results || topResults.length} results found in {result.duration_ms || 0}ms.</p>}
         </div>
 
-        {/* ONE CTA button */}
-        <div className="mb-6">
-          <Link href="/dashboard">
-            <button 
-              style={{ backgroundColor: '#FFBE00' }}
-              className="text-black font-black text-lg md:text-xl px-10 py-5 rounded-none shadow-md transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-2 uppercase tracking-wider"
-            >
-              Search Any Industry Now &rarr;
-            </button>
-          </Link>
-        </div>
-
-        {/* Trust Stats below button */}
-        <p className="text-xs md:text-sm text-gray-500 font-black tracking-widest uppercase">
-          100+ results per search &bull; Phone numbers included &bull; Any city in the US
-        </p>
+        <button
+          type="button"
+          className="globe-button"
+          onClick={() => setPulse((current) => current + 1)}
+          aria-label="Activate globe intelligence pulse"
+        >
+          <ElectricGlobe pulse={pulse} />
+        </button>
       </section>
 
-      {/* INDUSTRY SHOWCASE */}
-      <section className="bg-[#ffffff] py-16 px-6 md:px-12 border-t border-gray-100 w-full">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl md:text-5xl font-black text-black text-center mb-12 tracking-tighter uppercase">
-            Works For Every Industry
-          </h2>
-          <div className="flex flex-wrap justify-center gap-3 max-w-4xl mx-auto">
-            {industries.map((industry) => (
-              <div 
-                key={industry}
-                className="px-4 py-2 rounded-full border border-gray-200 text-black font-bold text-xs md:text-sm hover:bg-[#FFBE00] transition-colors cursor-default"
-              >
-                {industry}
-              </div>
+      {result?.ok && topResults.length > 0 && (
+        <section className="results-drawer" aria-live="polite">
+          <div className="results-header">
+            <div>
+              <span>LIVE RESULTS</span>
+              <h2>{result.total_results || topResults.length} matches</h2>
+            </div>
+            <button type="button" onClick={() => setResult(null)} aria-label="Close results"><X /></button>
+          </div>
+          <div className="results-grid">
+            {topResults.map((lead) => (
+              <article key={`${lead.company_name}-${lead.phone || lead.website || ''}`}>
+                <h3>{lead.company_name}</h3>
+                <p>{lead.city}{lead.state ? `, ${lead.state}` : ''}</p>
+                <div>
+                  {lead.phone && <a href={`tel:${lead.phone}`}>{lead.phone}</a>}
+                  {lead.website && <a href={lead.website} target="_blank" rel="noreferrer">Website</a>}
+                </div>
+              </article>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* HOW IT WORKS */}
-      <section className="bg-[#ffffff] py-20 px-6 md:px-12 border-t border-gray-100 w-full">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl md:text-5xl font-black text-black text-center mb-16 tracking-tighter uppercase">
-            How It Works
-          </h2>
-          <div className="flex flex-col md:flex-row gap-8">
-            {/* Step 1 */}
-            <div className="flex-1 bg-[#ffffff] border border-gray-200 rounded-none p-8 flex flex-col justify-between hover:shadow-md transition-shadow">
-              <div>
-                <div 
-                  style={{ backgroundColor: '#FFBE00' }}
-                  className="w-12 h-12 flex items-center justify-center text-black font-black text-xl mb-6 rounded-none"
-                >
-                  1
-                </div>
-                <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
-                  Tell Us What You Need
-                </h3>
-                <p className="text-gray-600 font-bold leading-relaxed text-sm md:text-base">
-                  Type any industry or business category. Be specific or broad &mdash; we handle both.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 2 */}
-            <div className="flex-1 bg-[#ffffff] border border-gray-200 rounded-none p-8 flex flex-col justify-between hover:shadow-md transition-shadow">
-              <div>
-                <div 
-                  style={{ backgroundColor: '#FFBE00' }}
-                  className="w-12 h-12 flex items-center justify-center text-black font-black text-xl mb-6 rounded-none"
-                >
-                  2
-                </div>
-                <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
-                  We Search Everything
-                </h3>
-                <p className="text-gray-600 font-bold leading-relaxed text-sm md:text-base">
-                  Our engine scans Google Maps, BBB, Yellow Pages, and more simultaneously &mdash; filtered to your exact city and industry.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div className="flex-1 bg-[#ffffff] border border-gray-200 rounded-none p-8 flex flex-col justify-between hover:shadow-md transition-shadow">
-              <div>
-                <div 
-                  style={{ backgroundColor: '#FFBE00' }}
-                  className="w-12 h-12 flex items-center justify-center text-black font-black text-xl mb-6 rounded-none"
-                >
-                  3
-                </div>
-                <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
-                  Get Phone-Ready Results
-                </h3>
-                <p className="text-gray-600 font-bold leading-relaxed text-sm md:text-base">
-                  Every result includes business name, phone number, rating, and address. Export or call directly.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* SOCIAL PROOF STATS BAR */}
-      <section 
-        style={{ backgroundColor: '#FFBE00' }}
-        className="w-full py-16 px-6 md:px-12 text-black"
-      >
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12 md:gap-4 text-center">
-          <div className="flex flex-col items-center flex-1 w-full">
-            <span className="text-5xl md:text-6xl font-black tracking-tight">30+</span>
-            <span className="text-sm font-black mt-2 tracking-widest uppercase">Industries</span>
-          </div>
-          <div className="flex flex-col items-center flex-1 w-full border-t md:border-t-0 md:border-l border-black/10 pt-8 md:pt-0">
-            <span className="text-5xl md:text-6xl font-black tracking-tight">100+</span>
-            <span className="text-sm font-black mt-2 tracking-widest uppercase">Results Per Search</span>
-          </div>
-          <div className="flex flex-col items-center flex-1 w-full border-t md:border-t-0 md:border-l border-black/10 pt-8 md:pt-0">
-            <span className="text-5xl md:text-6xl font-black tracking-tight">56%</span>
-            <span className="text-sm font-black mt-2 tracking-widest uppercase">Have Phone Numbers</span>
-          </div>
-          <div className="flex flex-col items-center flex-1 w-full border-t md:border-t-0 md:border-l border-black/10 pt-8 md:pt-0">
-            <span className="text-5xl md:text-6xl font-black tracking-tight">Any US City</span>
-            <span className="text-sm font-black mt-2 tracking-widest uppercase">Coverage</span>
-          </div>
-        </div>
-      </section>
-
-      {/* WHO IT'S FOR (3 personas) */}
-      <section className="bg-[#ffffff] py-20 px-6 md:px-12 w-full">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl md:text-5xl font-black text-black text-center mb-16 tracking-tighter uppercase">
-            Who It&apos;s For
-          </h2>
-          <div className="flex flex-col md:flex-row gap-8">
-            {/* Persona 1 */}
-            <div className="flex-1 bg-[#ffffff] border border-gray-200 rounded-none p-8 hover:shadow-md transition-shadow">
-              <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
-                Sales Teams &amp; Lead Gen
-              </h3>
-              <p className="text-gray-600 font-bold leading-relaxed text-sm md:text-base">
-                Build targeted call lists for any territory in minutes. Filter by city, industry, rating.
-              </p>
-            </div>
-
-            {/* Persona 2 */}
-            <div className="flex-1 bg-[#ffffff] border border-gray-200 rounded-none p-8 hover:shadow-md transition-shadow">
-              <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
-                Business Owners &amp; Operators
-              </h3>
-              <p className="text-gray-600 font-bold leading-relaxed text-sm md:text-base">
-                Understand your competitive landscape. Find every competitor and partner in your market.
-              </p>
-            </div>
-
-            {/* Persona 3 */}
-            <div className="flex-1 bg-[#ffffff] border border-gray-200 rounded-none p-8 hover:shadow-md transition-shadow">
-              <h3 className="text-xl md:text-2xl font-black text-black mb-4 uppercase tracking-tight">
-                Researchers &amp; Analysts
-              </h3>
-              <p className="text-gray-600 font-bold leading-relaxed text-sm md:text-base">
-                Gather structured business data for market research, reports, or database building.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FINAL CTA BAND */}
-      <section className="bg-[#111111] text-white py-24 px-6 md:px-12 text-center w-full">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase mb-4 text-white leading-tight">
-            Your Next 100 Leads Are One Search Away
-          </h2>
-          <p className="text-gray-400 text-lg md:text-xl font-bold mb-10 max-w-2xl mx-auto uppercase tracking-wide">
-            Any industry. Any city. Results in seconds.
-          </p>
-          <div className="flex justify-center">
-            <Link href="/dashboard">
-              <button 
-                style={{ backgroundColor: '#FFBE00' }}
-                className="text-black font-black text-lg md:text-xl px-10 py-5 rounded-none shadow-md transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-2 uppercase tracking-wider"
-              >
-                Start Searching Free &rarr;
-              </button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* FOOTER */}
-      <footer className="w-full py-8 text-center bg-[#ffffff] border-t border-gray-100 text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wider">
-        &copy; 2026 Strategic Minds Advisory. All rights reserved.
-      </footer>
+          <Link href="/dashboard" className="view-all">Open full search workspace <ArrowRight size={18} /></Link>
+        </section>
+      )}
     </main>
-  );
+  )
 }
