@@ -1,12 +1,13 @@
 {
-  "name": "xtreme-scraper",
-  "version": "1.0.0",
+  "name": "xps-intelligence",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "next": "14.2.5",
@@ -20,6 +21,7 @@
     "autoprefixer": "^10.0.1",
     "postcss": "^8",
     "lucide-react": "^0.400.0",
-    "clsx": "^2.1.1"
+    "clsx": "^2.1.1",
+    "jose": "^5.9.6"
   }
 }
