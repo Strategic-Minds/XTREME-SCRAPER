@@ -5,32 +5,15 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
 const TARGET_URL = 'https://xtreme-scraper-git-auto-builder-5df621-strategic-minds-advisory.vercel.app'
+const WORKER_CAPTURE_URL = 'https://browserworker-git-auto-builder-a782fc-strategic-minds-advisory.vercel.app/api/capture'
 
 const VIEWPORTS = {
-  desktop: { width: 1440, height: 900, deviceScaleFactor: 0.5 },
-  tablet: { width: 768, height: 1024, deviceScaleFactor: 0.5 },
+  desktop: { width: 1440, height: 900, deviceScaleFactor: 1 },
+  tablet: { width: 768, height: 1024, deviceScaleFactor: 1 },
   mobile: { width: 390, height: 844, deviceScaleFactor: 1 },
 } as const
 
 type ViewportName = keyof typeof VIEWPORTS
-
-type BrowserWorkerResponse = {
-  ok?: boolean
-  status?: string
-  worker_version?: string
-  browser?: { name?: string; version?: string }
-  timing?: { duration_ms?: number }
-  navigation?: { final_url?: string }
-  steps?: unknown[]
-  artifacts?: {
-    screenshots?: string[]
-    console_errors?: string[]
-    network_errors?: string[]
-  }
-  errors?: string[]
-  warnings?: string[]
-  receipt_id?: string
-}
 
 export async function GET(request: NextRequest) {
   const viewportName = (request.nextUrl.searchParams.get('viewport') || 'desktop') as ViewportName
@@ -41,93 +24,69 @@ export async function GET(request: NextRequest) {
     return Response.json({ ok: false, error: 'Unsupported viewport' }, { status: 400 })
   }
 
-  const workerUrl = (process.env.BROWSER_WORKER_URL || 'https://browserworker.vercel.app').replace(/\/$/, '')
   const workerSecret = process.env.BROWSER_WORKER_SECRET || process.env.BROWSER_WORKER_TOKEN || ''
 
   if (!workerSecret) {
     return Response.json({ ok: false, error: 'BrowserWorker secret is not configured' }, { status: 503 })
   }
 
-  const payload = {
-    version: '1.0',
-    job_id: `xtreme-scraper-parity-${viewportName}-${Date.now()}`,
-    correlation_id: 'xtreme-scraper-pr3-parity',
-    objective: `Validate XTREME-SCRAPER Intelora homepage at ${viewport.width}x${viewport.height}`,
-    url: TARGET_URL,
-    viewport,
-    timeout_ms: 90000,
-    capture: { screenshot: true, console: true, network_errors: true },
-    steps: [
-      { action: 'goto', url: TARGET_URL, timeout_ms: 60000 },
-      { action: 'wait_for_selector', selector: 'body', timeout_ms: 15000 },
-      { action: 'wait', milliseconds: 2500 },
-      { action: 'get_title' },
-      { action: 'get_viewport' },
-      { action: 'evaluate_safe', operation: 'performance' },
-      { action: 'screenshot', fullPage: false },
-      { action: 'capture_console' },
-      { action: 'capture_network_errors' },
-    ],
-  }
-
-  const response = await fetch(`${workerUrl}/api/run`, {
+  const response = await fetch(WORKER_CAPTURE_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${workerSecret}`,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      url: TARGET_URL,
+      viewport,
+      wait_ms: 2500,
+      full_page: false,
+    }),
     cache: 'no-store',
   })
 
-  const result = (await response.json()) as BrowserWorkerResponse
-
-  if (!response.ok || !result.ok) {
-    return Response.json({ ok: false, worker_http_status: response.status, result }, { status: 502 })
-  }
-
-  const screenshot = result.artifacts?.screenshots?.[0]
-
-  if (format === 'json') {
-    return Response.json({
-      ok: true,
-      viewport: viewportName,
-      configured_viewport: viewport,
-      worker_status: result.status,
-      worker_version: result.worker_version,
-      browser: result.browser,
-      duration_ms: result.timing?.duration_ms,
-      final_url: result.navigation?.final_url,
-      steps: result.steps,
-      screenshot_available: Boolean(screenshot),
-      console_errors: result.artifacts?.console_errors || [],
-      network_errors: result.artifacts?.network_errors || [],
-      errors: result.errors || [],
-      warnings: result.warnings || [],
-      receipt_id: result.receipt_id,
-    }, { headers: { 'Cache-Control': 'no-store' } })
-  }
-
-  if (!screenshot?.startsWith('data:image/png;base64,')) {
+  if (!response.ok) {
+    const errorText = await response.text()
     return Response.json({
       ok: false,
-      error: 'BrowserWorker completed but did not return an inline screenshot',
-      viewport: viewportName,
-      result,
-    }, { status: 422 })
+      worker_http_status: response.status,
+      worker_error: errorText.slice(0, 4000),
+    }, { status: 502 })
   }
 
-  const png = Buffer.from(screenshot.slice('data:image/png;base64,'.length), 'base64')
+  const bytes = new Uint8Array(await response.arrayBuffer())
+  const metadata = {
+    ok: true,
+    viewport: viewportName,
+    configured_viewport: viewport,
+    screenshot_bytes: bytes.byteLength,
+    worker_version: response.headers.get('x-browserworker-version'),
+    browser_version: response.headers.get('x-browser-version'),
+    title: decodeURIComponent(response.headers.get('x-capture-title') || ''),
+    final_url: decodeURIComponent(response.headers.get('x-capture-final-url') || ''),
+    duration_ms: Number(response.headers.get('x-capture-duration-ms') || 0),
+    console_errors: Number(response.headers.get('x-console-errors') || 0),
+    network_errors: Number(response.headers.get('x-network-errors') || 0),
+    console_error_sample: decodeURIComponent(response.headers.get('x-console-error-sample') || ''),
+    network_error_sample: decodeURIComponent(response.headers.get('x-network-error-sample') || ''),
+  }
 
-  return new Response(png, {
+  if (format === 'json') {
+    return Response.json(metadata, { headers: { 'Cache-Control': 'no-store' } })
+  }
+
+  return new Response(bytes, {
     status: 200,
     headers: {
       'Content-Type': 'image/png',
+      'Content-Length': String(bytes.byteLength),
       'Cache-Control': 'no-store',
-      'X-BrowserWorker-Status': result.status || 'unknown',
-      'X-BrowserWorker-Receipt': result.receipt_id || '',
-      'X-Console-Errors': String(result.artifacts?.console_errors?.length || 0),
-      'X-Network-Errors': String(result.artifacts?.network_errors?.length || 0),
+      'X-BrowserWorker-Version': metadata.worker_version || '',
+      'X-Browser-Version': metadata.browser_version || '',
+      'X-Capture-Viewport': `${viewport.width}x${viewport.height}@${viewport.deviceScaleFactor}`,
+      'X-Capture-Duration-Ms': String(metadata.duration_ms),
+      'X-Console-Errors': String(metadata.console_errors),
+      'X-Network-Errors': String(metadata.network_errors),
     },
   })
 }
